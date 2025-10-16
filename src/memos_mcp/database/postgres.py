@@ -47,7 +47,7 @@ class PostgresDatabase(Database):
             self.database_url = f"postgresql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
 
         self.engine = create_engine(self.database_url, echo=False)
-        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+        self.SessionLocal = sessionmaker(bind=self.engine, autoflush=False)
         Base.metadata.create_all(bind=self.engine)
 
     @contextmanager
