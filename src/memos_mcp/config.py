@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     postgres_port: int = 5432
     postgres_db: str = "memos"
     postgres_user: str = "memos_user"
-    postgres_password: str = "secure_password"
+    postgres_password: str
 
     neo4j_uri: str = "bolt://localhost:7687"
     neo4j_user: str = "neo4j"
