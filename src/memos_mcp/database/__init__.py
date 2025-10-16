@@ -8,6 +8,17 @@ from ..config import settings
 _db_instance = None
 
 def get_database() -> Database:
+    """
+    Obtain the module-wide Database instance configured for the current environment.
+    
+    Initializes and caches a single Database instance on first call: if the TESTING environment variable is set a test SQLite instance is used; otherwise the instance type is chosen from application settings. Subsequent calls return the cached instance.
+    
+    Returns:
+        Database: The cached module-level Database instance.
+    
+    Raises:
+        ValueError: If the configured database type in settings is not supported.
+    """
     global _db_instance
     if _db_instance is None:
         if os.environ.get("TESTING"):
