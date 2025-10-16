@@ -23,4 +23,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 
 # Run FastMCP server
 ENTRYPOINT ["fastmcp", "run"]
-CMD ["server.py"]
+CMD ["src/memos_mcp/server.py"]
