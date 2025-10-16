@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  memos-mcp:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: memos-cognitive-server
+    ports:
+      - "8080:8080"
+    volumes:
+      - sqlite-data:/data/sqlite
+      - postgres-data:/data/postgres
+      - neo4j-data:/data/neo4j
+    environment:
+      - MEMOS_DB_TYPE=${MEMOS_DB_TYPE:-sqlite}
+      - MEMOS_DB_PATH=/data/sqlite/memory.db
+      - POSTGRES_HOST=${POSTGRES_HOST:-postgres}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB:-memos}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - NEO4J_URI=${NEO4J_URI}
+      - NEO4J_USER=${NEO4J_USER}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+      - FASTMCP_LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - FASTMCP_TRANSPORT=${TRANSPORT:-sse}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  sqlite-data:
+    driver: local
+  postgres-data:
+    driver: local
+  neo4j-data:
+    driver: local
