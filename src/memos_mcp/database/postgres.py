@@ -36,12 +36,12 @@ class RegisteredTool(Base):
 class PostgresDatabase(Database):
     def __init__(self):
         """
-        Initialize the PostgresDatabase by configuring the SQLAlchemy engine and session factory and creating database tables.
+        Initialize the PostgresDatabase by resolving the database URL, creating the SQLAlchemy engine and session factory, and initializing the database schema.
         
-        Reads DATABASE_URL from the environment; if absent, constructs a PostgreSQL URL from POSTGRES_HOST (default "localhost"), POSTGRES_PORT (default 5432), POSTGRES_DB (default "memos"), POSTGRES_USER (default "apexsigma_user"), and POSTGRES_PASSWORD. Creates a SQLAlchemy engine bound to the resolved URL, sets up a sessionmaker as SessionLocal, and creates tables defined on Base.metadata.
+        If DATABASE_URL is not set, constructs a PostgreSQL URL from POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB, POSTGRES_USER, and POSTGRES_PASSWORD; then creates an SQLAlchemy engine, a sessionmaker bound to that engine, and creates any missing tables from the ORM metadata.
         
         Raises:
-            ValueError: If POSTGRES_PASSWORD is not set when DATABASE_URL is not provided.
+            ValueError: If neither DATABASE_URL is provided nor POSTGRES_PASSWORD is set in the environment.
         """
         self.database_url = os.environ.get("DATABASE_URL")
         if not self.database_url:
@@ -55,16 +55,16 @@ class PostgresDatabase(Database):
             self.database_url = f"postgresql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
 
         self.engine = create_engine(self.database_url, echo=False)
-        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+        self.SessionLocal = sessionmaker(bind=self.engine, autoflush=False)
         Base.metadata.create_all(bind=self.engine)
 
     @contextmanager
     def get_session(self) -> Session:
         """
-        Provide a transactional SQLAlchemy session suitable for use in a `with` statement.
+        Provide a transactional SQLAlchemy session as a context manager.
         
         Yields:
-            session (Session): A SQLAlchemy Session that will be committed on successful context exit, rolled back if an exception occurs, and always closed afterward.
+            session (Session): An active SQLAlchemy Session. The session is committed if the context exits normally, rolled back if an exception is raised, and always closed on exit.
         """
         session = self.SessionLocal()
         try:
@@ -78,15 +78,13 @@ class PostgresDatabase(Database):
 
     def store_memory(self, content: str, agent_id: str, metadata: Optional[Dict[str, Any]] = None) -> Optional[int]:
         """
-        Create and persist a Memory record and return its database id.
+        Persist a memory record and return its database identifier.
         
         Parameters:
-            content (str): Text content of the memory.
-            agent_id (str): Identifier for the agent that owns the memory.
             metadata (Optional[Dict[str, Any]]): Optional JSON-serializable metadata to store with the memory.
         
         Returns:
-            memory_id (Optional[int]): ID of the newly created memory, or `None` if the record was not persisted.
+            int or None: The created memory record's database `id`, or `None` if an identifier was not assigned.
         """
         with self.get_session() as session:
             memory = Memory(content=content, agent_id=agent_id, memory_metadata=metadata)
@@ -99,7 +97,7 @@ class PostgresDatabase(Database):
         Retrieve a memory record by its ID.
         
         Returns:
-            dict: Memory data with keys `id`, `content`, `agent_id`, `metadata`, `embedding_id`, `created_at`, and `updated_at` if found, `None` otherwise.
+            dict: Memory fields with keys 'id', 'content', 'agent_id', 'metadata', 'embedding_id', 'created_at', and 'updated_at' if found, `None` otherwise.
         """
         with self.get_session() as session:
             memory = session.query(Memory).filter(Memory.id == memory_id).first()
@@ -117,15 +115,12 @@ class PostgresDatabase(Database):
 
     def get_memories_by_ids(self, memory_ids: List[int]) -> List[Dict[str, Any]]:
         """
-        Retrieve stored memories matching the given IDs.
-        
-        Returns a list of dictionaries representing each memory found for the provided IDs. If `memory_ids` is empty, returns an empty list. Each memory dictionary contains the keys: `id`, `content`, `agent_id`, `metadata`, `embedding_id`, `created_at`, and `updated_at`. The order of returned memories is not guaranteed to match the input order.
-        
-        Parameters:
-            memory_ids (List[int]): IDs of the memories to retrieve.
+        Retrieve memories matching the given IDs.
         
         Returns:
-            List[Dict[str, Any]]: A list of memory dictionaries for the matching IDs.
+            List[Dict[str, Any]]: A list of memory records as dictionaries with keys
+            `id`, `content`, `agent_id`, `metadata`, `embedding_id`, `created_at`, and
+            `updated_at`.
         """
         if not memory_ids:
             return []
@@ -146,14 +141,14 @@ class PostgresDatabase(Database):
 
     def update_memory_embedding_id(self, memory_id: int, embedding_id: str) -> bool:
         """
-        Set the embedding identifier for a memory record and update its modification timestamp.
+        Set the embedding identifier for a stored memory and update its updated_at timestamp.
         
         Parameters:
-            memory_id (int): ID of the memory to update.
-            embedding_id (str): New embedding identifier to assign to the memory.
+            memory_id (int): ID of the memory record to update.
+            embedding_id (str): Embedding identifier to assign to the memory.
         
         Returns:
-            bool: `True` if a memory with the given ID was found and updated, `False` otherwise.
+            bool: `True` if the memory was found and updated, `False` otherwise.
         """
         with self.get_session() as session:
             memory = session.query(Memory).filter(Memory.id == memory_id).first()
@@ -170,11 +165,11 @@ class PostgresDatabase(Database):
         Parameters:
             name (str): Human-readable unique name of the tool.
             description (str): Detailed description of what the tool does.
-            usage (str): Example or instructions for using the tool.
-            tags (Optional[List[str]]): Optional list of tags for categorizing the tool.
+            usage (str): Example or instructions for how to use the tool.
+            tags (List[str] | None): Optional list of tags categorizing the tool.
         
         Returns:
-            int | None: The created tool's database ID, or `None` if creation did not produce an ID.
+            tool_id (int | None): The database ID of the created tool if persisted, `None` otherwise.
         """
         with self.get_session() as session:
             tool = RegisteredTool(name=name, description=description, usage=usage, tags=tags)
@@ -184,13 +179,10 @@ class PostgresDatabase(Database):
 
     def get_tool(self, tool_id: int) -> Optional[Dict[str, Any]]:
         """
-        Retrieve a registered tool by its primary key ID.
-        
-        Parameters:
-            tool_id (int): The numeric primary key of the tool to fetch.
+        Retrieve a registered tool by its database ID.
         
         Returns:
-            Optional[Dict[str, Any]]: A dictionary with keys `id`, `name`, `description`, `usage`, `tags`, `created_at`, and `updated_at` for the matching tool, or `None` if no tool exists with the given ID.
+            dict: A dictionary containing the tool's fields (`id`, `name`, `description`, `usage`, `tags`, `created_at`, `updated_at`) if the tool exists, `None` otherwise.
         """
         with self.get_session() as session:
             tool = session.query(RegisteredTool).filter(RegisteredTool.id == tool_id).first()
@@ -208,14 +200,14 @@ class PostgresDatabase(Database):
 
     def get_tools_by_context(self, query_context: str, limit: int = 10) -> List[Dict[str, Any]]:
         """
-        Finds registered tools whose description or usage contains the given context (case-insensitive).
+        Return tools whose description or usage contains the provided query context.
         
         Parameters:
-            query_context (str): Substring to search for within tool `description` or `usage` (matched case-insensitively).
-            limit (int): Maximum number of tool records to return.
+        	query_context (str): Text to match against a tool's description and usage (case-insensitive, substring match).
+        	limit (int): Maximum number of tools to return.
         
         Returns:
-            List[Dict[str, Any]]: A list of tool dictionaries with keys `id`, `name`, `description`, `usage`, `tags`, `created_at`, and `updated_at`.
+        	List[Dict[str, Any]]: List of tool dictionaries with keys "id", "name", "description", "usage", "tags", "created_at", and "updated_at".
         """
         with self.get_session() as session:
             tools = (
@@ -242,17 +234,11 @@ class PostgresDatabase(Database):
 
     def get_all_tools(self) -> List[Dict[str, Any]]:
         """
-        Return a list of all registered tools stored in the database.
+        Retrieve all registered tools from the database.
         
         Returns:
-            tools (List[Dict[str, Any]]): A list of tool records where each record is a dict with keys:
-                - id: integer primary key of the tool
-                - name: tool name
-                - description: tool description
-                - usage: usage instructions or examples
-                - tags: optional list or JSON of tags
-                - created_at: creation timestamp
-                - updated_at: last update timestamp
+            A list of dictionaries, each representing a registered tool with keys:
+            `id` (int), `name` (str), `description` (str), `usage` (str), `tags` (JSON-serializable), `created_at` (datetime), and `updated_at` (datetime).
         """
         with self.get_session() as session:
             tools = session.query(RegisteredTool).all()

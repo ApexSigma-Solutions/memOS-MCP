@@ -6,19 +6,17 @@ except Exception:
 
 async def store_memory(agent_id: str, content: str, metadata: dict = None) -> dict:
     """
-    Store persistent memory for an agent and attempt optional vector embedding storage.
+    Store an agent's memory and its embedding, persisting both to the database and the vector store.
     
     Parameters:
         agent_id (str): Identifier of the agent owning the memory.
-        content (str): Text content of the memory to store.
-        metadata (dict, optional): Additional metadata to attach to the memory.
+        content (str): Text content to persist and embed.
+        metadata (dict, optional): Additional metadata to associate with the memory and embedding.
     
     Returns:
-        dict: Operation result containing:
-            - status (str): "success" on success, "error" on failure.
-            - memory_id (str|int): Identifier of the stored memory record when successful.
-            - point_id (str|int|None): Identifier of the stored embedding/point if an external vector store is available and the embedding was stored; `None` if no embedding was stored or embedding storage failed.
-            - message (str, optional): Error message when `status` is "error".
+        dict: Result object with a "status" key:
+            - If status is "success", includes "memory_id" (the database record id) and "point_id" (the vector store id; may be `None` if storing the embedding failed).
+            - If status is "error", includes "message" describing the failure to store the memory.
     """
     db = get_database()
 
@@ -55,15 +53,15 @@ async def store_memory(agent_id: str, content: str, metadata: dict = None) -> di
 
 async def retrieve_context(agent_id: str, query: str, top_k: int = 5) -> list:
     """
-    Retrieve memories most relevant to a text query for a specific agent.
+    Retrieve memories most semantically similar to a query for the specified agent.
     
     Parameters:
-    	agent_id (str): Identifier of the agent whose memories should be searched.
-    	query (str): Text query used to find similar memories.
-    	top_k (int): Maximum number of results to return (default 5).
+        agent_id (str): Identifier of the agent whose memories should be searched.
+        query (str): Text query used to find relevant memories.
+        top_k (int): Maximum number of similar memories to return.
     
     Returns:
-    	list: A list of memory records. When a vector search backend is available and succeeds, each record may include a `similarity_score` field (higher means more similar). Returns an empty list if no vector search is available, no matches are found, or the search fails.
+        list: A list of memory records matching the query. Each record will include a `similarity_score` key with the similarity value. Returns an empty list if no relevant memories are found.
     """
     db = get_database()
 
@@ -92,13 +90,18 @@ async def retrieve_context(agent_id: str, query: str, top_k: int = 5) -> list:
 
 async def register_tool(tool_name: str, description: str, usage: str, tags: list = None) -> dict:
     """
-    Register a tool in persistent storage so the agent can reference it later.
+    Register a tool record in the agent's memory store.
     
     Parameters:
-        tags (list, optional): List of tag strings to categorize the tool.
+        tool_name (str): Human-readable name of the tool.
+        description (str): Short description of what the tool does.
+        usage (str): Example or summary of how the tool is used.
+        tags (list, optional): List of tags or categories associated with the tool.
     
     Returns:
-        dict: {"status": "success", "tool_id": <id>} on success, or {"status": "error", "message": <reason>} on failure.
+        result (dict): A dictionary with a `status` key. On success the dictionary contains
+        `{"status": "success", "tool_id": <id>}`. On failure it contains
+        `{"status": "error", "message": "<error message>"}`.
     """
     db = get_database()
     tool_id = db.register_tool(
@@ -113,21 +116,22 @@ async def register_tool(tool_name: str, description: str, usage: str, tags: list
 
 async def memory_graph(agent_id: str) -> dict:
     """
-    Return the agent's memory graph structure.
-    
-    This function provides access to the agent's memory graph. Currently it returns an empty dictionary as a placeholder for the graph structure.
+    Provide the agent's memory graph structure.
     
     Returns:
-        dict: A dictionary representing the agent's memory graph (currently empty).
+        graph (dict): Mapping of node identifiers to node data and adjacency information representing the agent's memory graph.
     """
     return {}
 
 async def tool_registry(agent_id: str) -> list:
     """
-    Return the list of tools registered in storage for the agent.
+    Retrieve the list of tools registered for a given agent.
+    
+    Parameters:
+        agent_id (str): Identifier of the agent whose tool registry to retrieve.
     
     Returns:
-        list: A list of tool records, each containing fields such as `id`, `name`, `description`, `usage`, and `tags`.
+        list: Tool records returned by the database for the specified agent.
     """
     db = get_database()
     return db.get_all_tools()

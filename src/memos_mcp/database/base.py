@@ -14,6 +14,15 @@ class Database(ABC):
         
         Returns:
             memory_id (Optional[int]): The identifier of the newly stored memory, or `None` if the memory could not be stored.
+        Persist a memory entry associated with an agent.
+        
+        Parameters:
+            content (str): Text content of the memory to persist.
+            agent_id (str): Identifier of the agent the memory belongs to.
+            metadata (Optional[Dict[str, Any]]): Optional additional data to store with the memory (for example timestamps, source, or tags).
+        
+        Returns:
+            Optional[int]: Identifier of the stored memory if persisted, `None` if the memory was not stored.
         """
         pass
 
@@ -21,12 +30,14 @@ class Database(ABC):
     def get_memory(self, memory_id: int) -> Optional[Dict[str, Any]]:
         """
         Retrieve a stored memory by its identifier.
+        Retrieve a stored memory entry by its identifier.
         
         Parameters:
             memory_id (int): Identifier of the memory to retrieve.
         
         Returns:
             memory (Optional[Dict[str, Any]]): Dictionary representing the memory if found, `None` otherwise.
+            Optional[Dict[str, Any]]: Dictionary representing the memory record, or `None` if no matching memory is found.
         """
         pass
 
@@ -40,6 +51,13 @@ class Database(ABC):
         
         Returns:
             List[Dict[str, Any]]: A list of memory objects (dictionaries) corresponding to the provided IDs. IDs that do not match any stored memory are omitted from the result.
+        Retrieve multiple memory entries by their IDs.
+        
+        Parameters:
+            memory_ids (List[int]): List of memory identifiers to retrieve.
+        
+        Returns:
+            List[Dict[str, Any]]: List of memory dictionaries corresponding to the provided IDs; IDs that are not found are omitted from the result.
         """
         pass
 
@@ -54,22 +72,26 @@ class Database(ABC):
         
         Returns:
             bool: `True` if the embedding id was successfully updated, `False` otherwise.
+            embedding_id (str): Embedding identifier to associate with the memory.
+        
+        Returns:
+            bool: `True` if the update succeeded, `False` otherwise.
         """
         pass
 
     @abstractmethod
     def register_tool(self, name: str, description: str, usage: str, tags: Optional[List[str]] = None) -> Optional[int]:
         """
-        Register a tool's metadata for later retrieval by ID or context.
+        Register a tool with its metadata for later lookup.
         
         Parameters:
-            name (str): Human-readable name of the tool.
-            description (str): Short description of the tool's purpose or behavior.
-            usage (str): Example or explanation of how the tool should be used.
-            tags (Optional[List[str]]): Optional list of tags or keywords to categorize the tool.
+        	name (str): Human-readable tool name.
+        	description (str): Short description of what the tool does.
+        	usage (str): Example or summary of how the tool should be used.
+        	tags (Optional[List[str]]): Optional list of tags to categorize or index the tool.
         
         Returns:
-            tool_id (Optional[int]): Integer identifier assigned to the registered tool if successful, `None` otherwise.
+        	tool_id (Optional[int]): Identifier of the registered tool if successful, or `None` if registration failed.
         """
         pass
 
@@ -79,33 +101,33 @@ class Database(ABC):
         Retrieve a registered tool by its identifier.
         
         Parameters:
-            tool_id (int): The unique identifier of the tool to retrieve.
+            tool_id (int): Identifier of the tool to retrieve.
         
         Returns:
-            Optional[Dict[str, Any]]: A dictionary representing the tool record if found, `None` otherwise.
+            Optional[Dict[str, Any]]: Dictionary representing the tool and its metadata if found, `None` if no tool exists with the given identifier.
         """
         pass
 
     @abstractmethod
     def get_tools_by_context(self, query_context: str, limit: int = 10) -> List[Dict[str, Any]]:
         """
-        Retrieve tools matching a textual context query, ordered by relevance.
+        Retrieve tools whose metadata or descriptions best match the given context string.
         
         Parameters:
-        	query_context (str): Text used to search tool descriptions and usage.
-        	limit (int): Maximum number of tools to return (defaults to 10).
+            query_context (str): Context or query text used to find relevant tools.
+            limit (int): Maximum number of tools to return.
         
         Returns:
-        	List[Dict[str, Any]]: List of tool records that match `query_context`, limited to `limit` items.
+            List[Dict[str, Any]]: A list of tool records that match the context, up to `limit` items.
         """
         pass
 
     @abstractmethod
     def get_all_tools(self) -> List[Dict[str, Any]]:
         """
-        Retrieve all registered tools.
+        Return a list of all registered tool records.
         
         Returns:
-            List[Dict[str, Any]]: A list of dictionaries, each representing a registered tool (for example: id, name, description, usage, tags). Returns an empty list if no tools are registered.
+            List[Dict[str, Any]]: A list of tool dictionaries; empty list if no tools are registered.
         """
         pass
