@@ -41,7 +41,9 @@ class PostgresDatabase(Database):
             self.port = int(os.environ.get("POSTGRES_PORT", 5432))
             self.database = os.environ.get("POSTGRES_DB", "memos")
             self.user = os.environ.get("POSTGRES_USER", "apexsigma_user")
-            self.password = os.environ.get("POSTGRES_PASSWORD", "your_secure_postgres_password_here")
+            self.password = os.environ.get("POSTGRES_PASSWORD")
+            if not self.password:
+                raise ValueError("POSTGRES_PASSWORD environment variable must be set.")
             self.database_url = f"postgresql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
 
         self.engine = create_engine(self.database_url, echo=False)
