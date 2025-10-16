@@ -5,6 +5,15 @@ class Database(ABC):
     @abstractmethod
     def store_memory(self, content: str, agent_id: str, metadata: Optional[Dict[str, Any]] = None) -> Optional[int]:
         """
+        Store a memory item associated with a specific agent.
+        
+        Parameters:
+            content (str): The textual content of the memory.
+            agent_id (str): Identifier of the agent to which the memory belongs.
+            metadata (Optional[Dict[str, Any]]): Optional additional key-value data to persist with the memory (e.g., tags, timestamps, source).
+        
+        Returns:
+            memory_id (Optional[int]): The identifier of the newly stored memory, or `None` if the memory could not be stored.
         Persist a memory entry associated with an agent.
         
         Parameters:
@@ -20,12 +29,14 @@ class Database(ABC):
     @abstractmethod
     def get_memory(self, memory_id: int) -> Optional[Dict[str, Any]]:
         """
+        Retrieve a stored memory by its identifier.
         Retrieve a stored memory entry by its identifier.
         
         Parameters:
             memory_id (int): Identifier of the memory to retrieve.
         
         Returns:
+            memory (Optional[Dict[str, Any]]): Dictionary representing the memory if found, `None` otherwise.
             Optional[Dict[str, Any]]: Dictionary representing the memory record, or `None` if no matching memory is found.
         """
         pass
@@ -33,6 +44,13 @@ class Database(ABC):
     @abstractmethod
     def get_memories_by_ids(self, memory_ids: List[int]) -> List[Dict[str, Any]]:
         """
+        Retrieve multiple memories by their identifiers.
+        
+        Parameters:
+            memory_ids (List[int]): List of memory IDs to retrieve.
+        
+        Returns:
+            List[Dict[str, Any]]: A list of memory objects (dictionaries) corresponding to the provided IDs. IDs that do not match any stored memory are omitted from the result.
         Retrieve multiple memory entries by their IDs.
         
         Parameters:
@@ -50,6 +68,10 @@ class Database(ABC):
         
         Parameters:
             memory_id (int): Identifier of the memory to update.
+            embedding_id (str): Identifier of the embedding to associate with the memory.
+        
+        Returns:
+            bool: `True` if the embedding id was successfully updated, `False` otherwise.
             embedding_id (str): Embedding identifier to associate with the memory.
         
         Returns:

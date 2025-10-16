@@ -116,6 +116,18 @@ class SQLiteDatabase(Database):
             return result.inserted_primary_key[0]
 
     def _row_to_dict(self, row: Any, table_name: str) -> Dict[str, Any]:
+        """
+        Convert a SQLAlchemy row result into a plain dictionary, remapping memory metadata for memories.
+        
+        Parameters:
+            row (Any): A SQLAlchemy row/result object (or falsy) with a `_mapping` attribute.
+            table_name (str): Name of the table the row came from; used to apply table-specific renames.
+        
+        Returns:
+            dict: A dictionary of column names to values for the row. If `table_name` is "memories" and the row contains
+            the `memory_metadata` key, that key is renamed to `metadata`.
+            None: If `row` is falsy.
+        """
         if not row:
             return None
     

@@ -14,6 +14,7 @@ class Neo4jDatabase(Database):
         """
         Initialize the Neo4jDatabase instance.
         
+        Logs an informational message stating the Neo4j database client is not yet implemented; no additional initialization is performed.
         This constructor prepares a Neo4jDatabase object but does not establish a connection or configure a client; the Neo4j backend is not yet implemented.
         """
         logging.info("Neo4j database client is not yet implemented.")
