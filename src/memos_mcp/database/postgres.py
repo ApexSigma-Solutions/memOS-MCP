@@ -85,6 +85,8 @@ class PostgresDatabase(Database):
             return None
 
     def get_memories_by_ids(self, memory_ids: List[int]) -> List[Dict[str, Any]]:
+        if not memory_ids:
+            return []
         with self.get_session() as session:
             memories = session.query(Memory).filter(Memory.id.in_(memory_ids)).all()
             return [
