@@ -1,10 +1,13 @@
 from memos_mcp.database import get_database
-from memos_mcp.database.qdrant import get_qdrant_client
+try:
+    from memos_mcp.database.qdrant import get_qdrant_client  # expected real implementation
+except Exception:
+    get_qdrant_client = None  # fallback if not available
 
 async def store_memory(agent_id: str, content: str, metadata: dict = None) -> dict:
     """Store persistent memory for an agent"""
     db = get_database()
-    qdrant_client = get_qdrant_client()
+
     memory_id = db.store_memory(
         content=content,
         agent_id=agent_id,
@@ -12,17 +15,28 @@ async def store_memory(agent_id: str, content: str, metadata: dict = None) -> di
     )
     if memory_id is None:
         return {"status": "error", "message": "Failed to store memory"}
-    embedding = qdrant_client.generate_placeholder_embedding(content)
-    point_id = qdrant_client.store_embedding(
-        embedding=embedding,
-        memory_id=memory_id,
-        agent_id=agent_id,
-        metadata=metadata
-    )
-    if point_id is None:
-        print(f"Warning: Failed to store embedding for memory {memory_id}")
+
+    point_id = None
+    # Optional Qdrant flow
+    if callable(get_qdrant_client):
+        try:
+            qdrant_client = get_qdrant_client()
+            embedding = qdrant_client.generate_placeholder_embedding(content)
+            point_id = qdrant_client.store_embedding(
+                embedding=embedding,
+                memory_id=memory_id,
+                agent_id=agent_id,
+                metadata=metadata
+            )
+            if point_id:
+                db.update_memory_embedding_id(memory_id, point_id)
+            else:
+                print(f"Warning: Failed to store embedding for memory {memory_id}")
+        except Exception as e:
+            print(f"Warning: Qdrant unavailable or failed: {e}")
     else:
-        db.update_memory_embedding_id(memory_id, point_id)
+        print("Info: Qdrant client not configured; skipping embedding storage")
+
     return {"status": "success", "memory_id": memory_id, "point_id": point_id}
 
 async def retrieve_context(agent_id: str, query: str, top_k: int = 5) -> list:
