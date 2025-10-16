@@ -98,6 +98,8 @@ class SQLiteDatabase(Database):
             return self._row_to_dict(result, "memories")
 
     def get_memories_by_ids(self, memory_ids: List[int]) -> List[Dict[str, Any]]:
+        if not memory_ids:
+            return []
         with self.get_session() as session:
             results = session.execute(
                 self.memories.select().where(self.memories.c.id.in_(memory_ids))
