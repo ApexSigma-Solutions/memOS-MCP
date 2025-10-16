@@ -115,6 +115,15 @@ class SQLiteDatabase(Database):
             )
             return result.inserted_primary_key[0]
 
+    def _row_to_dict(self, row: Any, table_name: str) -> Dict[str, Any]:
+        if not row:
+            return None
+    
+        d = dict(row._mapping)
+        if table_name == "memories" and "memory_metadata" in d:
+            d["metadata"] = d.pop("memory_metadata")
+        return d
+
     def get_memory(self, memory_id: int) -> Optional[Dict[str, Any]]:
         """
         Retrieve a stored memory by its ID.
@@ -131,11 +140,7 @@ class SQLiteDatabase(Database):
             result = session.execute(
                 self.memories.select().where(self.memories.c.id == memory_id)
             ).first()
-            if result:
-                row = dict(result._mapping)
-                row["metadata"] = row.pop("memory_metadata")
-                return row
-            return None
+            return self._row_to_dict(result, "memories")
 
     def get_memories_by_ids(self, memory_ids: List[int]) -> List[Dict[str, Any]]:
         """
@@ -147,6 +152,8 @@ class SQLiteDatabase(Database):
         Returns:
             List[Dict[str, Any]]: A list of memory records as dictionaries. Each dictionary contains the row fields with `memory_metadata` renamed to `metadata`. If no rows match, an empty list is returned.
         """
+        if not memory_ids:
+            return []
         with self.get_session() as session:
             results = session.execute(
                 self.memories.select().where(self.memories.c.id.in_(memory_ids))

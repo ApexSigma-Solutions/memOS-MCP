@@ -55,7 +55,7 @@ class PostgresDatabase(Database):
             self.database_url = f"postgresql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
 
         self.engine = create_engine(self.database_url, echo=False)
-        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+        self.SessionLocal = sessionmaker(bind=self.engine, autoflush=False)
         Base.metadata.create_all(bind=self.engine)
 
     @contextmanager
@@ -122,6 +122,8 @@ class PostgresDatabase(Database):
             `id`, `content`, `agent_id`, `metadata`, `embedding_id`, `created_at`, and
             `updated_at`.
         """
+        if not memory_ids:
+            return []
         with self.get_session() as session:
             memories = session.query(Memory).filter(Memory.id.in_(memory_ids)).all()
             return [
