@@ -13,8 +13,7 @@
       "psycopg2-binary",
       "neo4j",
       "pydantic",
-      "pydantic-settings",
-      "qdrant-client"
+      "pydantic-settings"
     ]
   },
   "deployment": {

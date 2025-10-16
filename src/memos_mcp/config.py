@@ -1,3 +1,5 @@
+from typing import Optional
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -10,11 +12,11 @@ class Settings(BaseSettings):
     postgres_port: int = 5432
     postgres_db: str = "memos"
     postgres_user: str = "memos_user"
-    postgres_password: str
+    postgres_password: Optional[str] = None
 
     neo4j_uri: str = "bolt://localhost:7687"
     neo4j_user: str = "neo4j"
-    neo4j_password: str
+    neo4j_password: Optional[str] = None
 
     fastmcp_server_port: int = 8080
     fastmcp_server_host: str = "0.0.0.0"
@@ -24,5 +26,13 @@ class Settings(BaseSettings):
     memos_enable_tool_registry: bool = True
     memos_enable_graph_memory: bool = False
     memos_max_memory_size: int = 1000
+
+    @model_validator(mode='after')
+    def check_passwords(self) -> 'Settings':
+        if self.memos_db_type == "postgres" and not self.postgres_password:
+            raise ValueError("POSTGRES_PASSWORD must be set when using PostgreSQL")
+        if self.memos_enable_graph_memory and not self.neo4j_password:
+            raise ValueError("NEO4J_PASSWORD must be set when graph memory is enabled")
+        return self
 
 settings = Settings()
