@@ -14,7 +14,7 @@ class Settings(BaseSettings):
 
     neo4j_uri: str = "bolt://localhost:7687"
     neo4j_user: str = "neo4j"
-    neo4j_password: str = "neo4j_password"
+    neo4j_password: str
 
     fastmcp_server_port: int = 8080
     fastmcp_server_host: str = "0.0.0.0"

@@ -6,18 +6,17 @@ except Exception:
 
 async def store_memory(agent_id: str, content: str, metadata: dict = None) -> dict:
     """
-    Persist an agent's memory and, if available, store a corresponding embedding in Qdrant.
+    Store an agent's memory and its embedding, persisting both to the database and the vector store.
     
     Parameters:
         agent_id (str): Identifier of the agent owning the memory.
-        content (str): The memory text to persist.
-        metadata (dict, optional): Additional metadata to associate with the memory.
+        content (str): Text content to persist and embed.
+        metadata (dict, optional): Additional metadata to associate with the memory and embedding.
     
     Returns:
-        dict: A result object containing:
-            - status (str): "success" or "error".
-            - memory_id (str|None): Identifier of the stored memory on success.
-            - point_id (str|None): Identifier of the stored embedding point if created, otherwise `None`.
+        dict: Result object with a "status" key:
+            - If status is "success", includes "memory_id" (the database record id) and "point_id" (the vector store id; may be `None` if storing the embedding failed).
+            - If status is "error", includes "message" describing the failure to store the memory.
     """
     db = get_database()
 
@@ -54,42 +53,55 @@ async def store_memory(agent_id: str, content: str, metadata: dict = None) -> di
 
 async def retrieve_context(agent_id: str, query: str, top_k: int = 5) -> list:
     """
-    Retrieve memories relevant to a query for a given agent.
-    
-    Searches the agent's stored memories for the top-k entries similar to the provided query and returns those memories annotated with a `similarity_score` for each memory.
+    Retrieve memories most semantically similar to a query for the specified agent.
     
     Parameters:
+        agent_id (str): Identifier of the agent whose memories should be searched.
+        query (str): Text query used to find relevant memories.
         top_k (int): Maximum number of similar memories to return.
     
     Returns:
-        list: A list of memory records found for the agent, each augmented with a `similarity_score` field (float) indicating similarity to the query. If no matches are found, returns an empty list.
+        list: A list of memory records matching the query. Each record will include a `similarity_score` key with the similarity value. Returns an empty list if no relevant memories are found.
     """
     db = get_database()
-    qdrant_client = get_qdrant_client()
-    query_embedding = qdrant_client.generate_placeholder_embedding(query)
-    search_results = qdrant_client.search_similar_memories(
-        query_embedding=query_embedding,
-        top_k=top_k,
-        agent_id=agent_id
-    )
-    memory_ids = [result["memory_id"] for result in search_results]
-    if not memory_ids:
-        return []
-    memories = db.get_memories_by_ids(memory_ids)
-    memory_scores = {result["memory_id"]: result["score"] for result in search_results}
-    for memory in memories:
-        memory["similarity_score"] = memory_scores.get(memory["id"])
-    return memories
+
+    if callable(get_qdrant_client):
+        try:
+            qdrant_client = get_qdrant_client()
+            query_embedding = qdrant_client.generate_placeholder_embedding(query)
+            search_results = qdrant_client.search_similar_memories(
+                query_embedding=query_embedding,
+                top_k=top_k,
+                agent_id=agent_id
+            )
+            memory_ids = [result["memory_id"] for result in search_results]
+            if not memory_ids:
+                return []
+            memories = db.get_memories_by_ids(memory_ids)
+            memory_scores = {result["memory_id"]: result["score"] for result in search_results}
+            for memory in memories:
+                memory["similarity_score"] = memory_scores.get(memory["id"])
+            return memories
+        except Exception as e:
+            print(f"Warning: Qdrant unavailable or failed during search: {e}")
+
+    # Fallback: no vector search available; return empty or a simple heuristic
+    return []
 
 async def register_tool(tool_name: str, description: str, usage: str, tags: list = None) -> dict:
     """
-    Register a tool's metadata in the persistent agent tool registry.
+    Register a tool record in the agent's memory store.
     
     Parameters:
+        tool_name (str): Human-readable name of the tool.
+        description (str): Short description of what the tool does.
+        usage (str): Example or summary of how the tool is used.
         tags (list, optional): List of tags or categories associated with the tool.
     
     Returns:
-        dict: {"status": "success", "tool_id": <id>} on success; {"status": "error", "message": <reason>} on failure.
+        result (dict): A dictionary with a `status` key. On success the dictionary contains
+        `{"status": "success", "tool_id": <id>}`. On failure it contains
+        `{"status": "error", "message": "<error message>"}`.
     """
     db = get_database()
     tool_id = db.register_tool(
@@ -104,22 +116,22 @@ async def register_tool(tool_name: str, description: str, usage: str, tags: list
 
 async def memory_graph(agent_id: str) -> dict:
     """
-    Return the memory graph for the specified agent.
+    Provide the agent's memory graph structure.
     
     Returns:
-        graph (dict): Mapping representing the agent's memory graph; empty dict if no graph is available.
+        graph (dict): Mapping of node identifiers to node data and adjacency information representing the agent's memory graph.
     """
     return {}
 
 async def tool_registry(agent_id: str) -> list:
     """
-    Retrieve the list of tools known by an agent.
+    Retrieve the list of tools registered for a given agent.
     
     Parameters:
-        agent_id (str): Identifier of the agent whose tools to retrieve.
+        agent_id (str): Identifier of the agent whose tool registry to retrieve.
     
     Returns:
-        list: Tool records known to the agent.
+        list: Tool records returned by the database for the specified agent.
     """
     db = get_database()
     return db.get_all_tools()

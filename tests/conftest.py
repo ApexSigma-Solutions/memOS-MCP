@@ -7,10 +7,12 @@ import tempfile
 @pytest.fixture
 def temp_db_path():
     """
-    Provide a filesystem path to a temporary `.db` file for use in tests.
+    Create a temporary file with a '.db' suffix and provide its filesystem path for a test.
     
-    Yields:
-        str: Path to the temporary `.db` file created for the test. The file is removed after the test completes if it still exists.
+    The file is created and closed before the fixture returns. After the test finishes, the file is removed if it still exists.
+    
+    Returns:
+        db_path (str): Filesystem path to the temporary `.db` file.
     """
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
     temp_file.close()
@@ -22,12 +24,10 @@ def temp_db_path():
 @pytest.fixture
 def temp_dir():
     """
-    Create and yield a temporary directory for use in tests.
-    
-    The directory is removed (including its contents) after the caller finishes using it if it still exists.
+    Create and provide a temporary directory for a test, removing it after the test completes.
     
     Returns:
-        temp_directory (str): Filesystem path to the created temporary directory.
+        temp_directory (str): Filesystem path to the created temporary directory; the directory is deleted after the fixture is torn down.
     """
     temp_directory = tempfile.mkdtemp()
     yield temp_directory
@@ -48,16 +48,16 @@ def reset_singletons():
 @pytest.fixture
 def sample_memory_data():
     """
-    Provide a sample memory dictionary for tests.
+    Sample memory record used in tests.
     
     Returns:
-        sample_memory (dict): A dictionary representing a memory with the following keys:
+        dict: A memory dictionary with keys:
             - content (str): The memory text.
             - agent_id (str): Identifier of the agent that created the memory.
-            - metadata (dict): Additional metadata containing:
-                - source (str): Origin of the memory (e.g., "test").
+            - metadata (dict): Additional metadata with keys:
+                - source (str): Origin of the memory.
                 - timestamp (str): ISO 8601 timestamp string.
-                - tags (list[str]): List of tag strings associated with the memory.
+                - tags (list[str]): List of tag strings.
     """
     return {
         "content": "This is a test memory",
@@ -73,13 +73,13 @@ def sample_memory_data():
 @pytest.fixture
 def sample_tool_data():
     """
-    Provide a sample tool data dictionary for tests.
+    Provide a canonical sample tool dictionary for use in tests.
     
     Returns:
-        dict: A dictionary representing a tool with the following keys:
-            - name (str): Tool identifier.
-            - description (str): Short description of the tool.
-            - usage (str): Usage instructions or summary.
+        dict: A dictionary representing a tool with keys:
+            - name (str): Identifier for the tool.
+            - description (str): Short human-readable description.
+            - usage (str): Example or brief usage instructions.
             - tags (list[str]): List of tag strings categorizing the tool.
     """
     return {
