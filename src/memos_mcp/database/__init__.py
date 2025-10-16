@@ -54,6 +54,8 @@ def get_database() -> Database:
             if os.environ.get("TESTING"):
                 _db_instance = SQLiteDatabase(db_path="test_memory.db")
             else:
+                raise ValueError(f"Unsupported database type: {db_type}")
+    return _db_instance
                 db_type = settings.memos_db_type
                 if db_type == "sqlite":
                     _db_instance = SQLiteDatabase(db_path=settings.memos_db_path)
