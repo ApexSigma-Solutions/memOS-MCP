@@ -19,8 +19,8 @@ class Memory(Base):
     agent_id = Column(String(255), nullable=False, default="default_agent")
     memory_metadata = Column(JSON, nullable=True)
     embedding_id = Column(String(255), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 class RegisteredTool(Base):
     __tablename__ = "registered_tools"
