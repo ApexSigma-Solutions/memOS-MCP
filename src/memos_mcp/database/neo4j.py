@@ -1,9 +1,10 @@
 from typing import Any, Dict, List, Optional
 from .base import Database
+import logging
 
 class Neo4jDatabase(Database):
     def __init__(self):
-        print("Neo4j database client is not yet implemented.")
+        logging.info("Neo4j database client is not yet implemented.")
 
     def store_memory(self, content: str, agent_id: str, metadata: Optional[Dict[str, Any]] = None) -> Optional[int]:
         return None
