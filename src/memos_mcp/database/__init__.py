@@ -8,7 +8,18 @@ from ..config import settings
 _db_instance = None
 
 def get_db_instance() -> Database:
-    """Creates and returns a database instance based on settings."""
+    """
+    Selects and constructs a Database implementation based on application settings.
+    
+    Returns:
+        A Database instance configured according to settings.memos_db_type:
+        - "sqlite": SQLiteDatabase initialized with settings.memos_db_path
+        - "postgres": PostgresDatabase
+        - "neo4j": Neo4jDatabase
+    
+    Raises:
+        ValueError: If settings.memos_db_type is not one of "sqlite", "postgres", or "neo4j".
+    """
     db_type = settings.memos_db_type
     if db_type == "sqlite":
         return SQLiteDatabase(db_path=settings.memos_db_path)
@@ -20,8 +31,10 @@ def get_db_instance() -> Database:
 
 def get_database() -> Database:
     """
-    Returns a cached singleton database instance.
-    This function can be patched during testing to return a test-specific database.
+    Provide a cached singleton Database instance. If no instance is cached, a new one is created; when the environment variable `TESTING` is set, an in-memory SQLite database is used.
+    
+    Returns:
+        Database: The cached Database instance.
     """
     global _db_instance
     if _db_instance is None:
