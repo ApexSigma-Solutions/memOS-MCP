@@ -42,21 +42,29 @@ async def store_memory(agent_id: str, content: str, metadata: dict = None) -> di
 async def retrieve_context(agent_id: str, query: str, top_k: int = 5) -> list:
     """Retrieve relevant context from agent memory"""
     db = get_database()
-    qdrant_client = get_qdrant_client()
-    query_embedding = qdrant_client.generate_placeholder_embedding(query)
-    search_results = qdrant_client.search_similar_memories(
-        query_embedding=query_embedding,
-        top_k=top_k,
-        agent_id=agent_id
-    )
-    memory_ids = [result["memory_id"] for result in search_results]
-    if not memory_ids:
-        return []
-    memories = db.get_memories_by_ids(memory_ids)
-    memory_scores = {result["memory_id"]: result["score"] for result in search_results}
-    for memory in memories:
-        memory["similarity_score"] = memory_scores.get(memory["id"])
-    return memories
+
+    if callable(get_qdrant_client):
+        try:
+            qdrant_client = get_qdrant_client()
+            query_embedding = qdrant_client.generate_placeholder_embedding(query)
+            search_results = qdrant_client.search_similar_memories(
+                query_embedding=query_embedding,
+                top_k=top_k,
+                agent_id=agent_id
+            )
+            memory_ids = [result["memory_id"] for result in search_results]
+            if not memory_ids:
+                return []
+            memories = db.get_memories_by_ids(memory_ids)
+            memory_scores = {result["memory_id"]: result["score"] for result in search_results}
+            for memory in memories:
+                memory["similarity_score"] = memory_scores.get(memory["id"])
+            return memories
+        except Exception as e:
+            print(f"Warning: Qdrant unavailable or failed during search: {e}")
+
+    # Fallback: no vector search available; return empty or a simple heuristic
+    return []
 
 async def register_tool(tool_name: str, description: str, usage: str, tags: list = None) -> dict:
     """Register tool awareness in agent memory"""
