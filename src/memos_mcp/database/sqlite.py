@@ -19,6 +19,14 @@ from .base import Database
 
 class SQLiteDatabase(Database):
     def __init__(self, db_path: str = "memory.db"):
+        """
+        Initialize a SQLite-backed database connection, create the schema, and prepare a session factory.
+        
+        If the TESTING environment variable is set, the database path is replaced with "test_memory.db". The constructor creates the parent directory for the database file when applicable, builds the SQLite URL, instantiates a SQLAlchemy engine and metadata, calls _define_tables to declare the schema, creates all tables on the engine, and configures SessionLocal (autocommit=False, autoflush=False) for producing sessions.
+        
+        Parameters:
+            db_path (str): Path to the SQLite database file (defaults to "memory.db").
+        """
         if os.environ.get("TESTING"):
             db_path = "test_memory.db"
 
@@ -36,6 +44,29 @@ class SQLiteDatabase(Database):
         )
 
     def _define_tables(self):
+        """
+        Define the database schema on the instance metadata by creating two SQL tables: `memories` and `registered_tools`.
+        
+        - `memories`: stores persisted memory entries with columns:
+            - `id`: primary key, auto-incrementing integer.
+            - `content`: text payload of the memory.
+            - `agent_id`: identifier of the agent that created the memory (defaults to "default_agent").
+            - `memory_metadata`: JSON object with arbitrary metadata for the memory.
+            - `embedding_id`: optional string reference to an embedding.
+            - `created_at`: timestamp set to the current UTC time when the row is created.
+            - `updated_at`: timestamp set to the current UTC time when the row is created and updated on modifications.
+        
+        - `registered_tools`: stores tool registrations with columns:
+            - `id`: primary key, auto-incrementing integer.
+            - `name`: unique tool name.
+            - `description`: textual description of the tool.
+            - `usage`: textual usage instructions or examples.
+            - `tags`: JSON array or object of tags/metadata.
+            - `created_at`: timestamp set to the current UTC time when the row is created.
+            - `updated_at`: timestamp set to the current UTC time when the row is created and updated on modifications.
+        
+        The tables are attached to the instance's SQLAlchemy MetaData as `self.memories` and `self.registered_tools`.
+        """
         self.memories = Table(
             "memories",
             self.metadata,
@@ -62,6 +93,14 @@ class SQLiteDatabase(Database):
 
     @contextmanager
     def get_session(self) -> Session:
+        """
+        Provide a context-managed SQLAlchemy session.
+        
+        Yields a SQLAlchemy Session instance for use within a context manager. The session's transaction is committed when the context exits normally; if an exception occurs the transaction is rolled back and the exception is re-raised. The session is closed in all cases.
+        
+        Returns:
+            Session: A managed SQLAlchemy Session instance.
+        """
         session = self.SessionLocal()
         try:
             yield session
@@ -73,6 +112,17 @@ class SQLiteDatabase(Database):
             session.close()
 
     def store_memory(self, content: str, agent_id: str, metadata: Optional[Dict[str, Any]] = None) -> Optional[int]:
+        """
+        Insert a memory record into the database and return its primary key.
+        
+        Parameters:
+        	content (str): Text content of the memory.
+        	agent_id (str): Identifier of the agent associated with the memory.
+        	metadata (Optional[Dict[str, Any]]): Arbitrary JSON-serializable metadata to store with the memory.
+        
+        Returns:
+        	memory_id (Optional[int]): The primary key of the inserted memory row, or `None` if the insertion did not produce an ID.
+        """
         with self.get_session() as session:
             result = session.execute(
                 self.memories.insert().values(
@@ -82,6 +132,14 @@ class SQLiteDatabase(Database):
             return result.inserted_primary_key[0]
 
     def get_memory(self, memory_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve a memory by its ID.
+        
+        If a memory with the given ID exists, returns a dictionary representation of the row where the stored `memory_metadata` column is exposed as the `metadata` key; returns `None` if no matching memory is found.
+        
+        Returns:
+            dict: Memory record with `metadata` key, or `None` if not found.
+        """
         with self.get_session() as session:
             result = session.execute(
                 self.memories.select().where(self.memories.c.id == memory_id)
@@ -93,6 +151,15 @@ class SQLiteDatabase(Database):
             return None
 
     def get_memories_by_ids(self, memory_ids: List[int]) -> List[Dict[str, Any]]:
+        """
+        Retrieve memories with the given IDs from the database.
+        
+        Parameters:
+            memory_ids (List[int]): List of memory primary keys to fetch.
+        
+        Returns:
+            List[Dict[str, Any]]: A list of dictionaries representing each found memory. Each dictionary contains the row fields with `memory_metadata` renamed to `metadata` (e.g., keys include `id`, `content`, `agent_id`, `metadata`, `embedding_id`, `created_at`, `updated_at`).
+        """
         with self.get_session() as session:
             results = session.execute(
                 self.memories.select().where(self.memories.c.id.in_(memory_ids))
@@ -105,6 +172,16 @@ class SQLiteDatabase(Database):
             return output
 
     def update_memory_embedding_id(self, memory_id: int, embedding_id: str) -> bool:
+        """
+        Set the embedding identifier for an existing memory record.
+        
+        Parameters:
+            memory_id (int): Primary key of the memory to update.
+            embedding_id (str): Embedding identifier to assign to the memory.
+        
+        Returns:
+            bool: `True` after the memory's `embedding_id` has been updated.
+        """
         with self.get_session() as session:
             session.execute(
                 self.memories.update()
@@ -114,6 +191,18 @@ class SQLiteDatabase(Database):
             return True
 
     def register_tool(self, name: str, description: str, usage: str, tags: Optional[List[str]] = None) -> Optional[int]:
+        """
+        Register a new tool in the database.
+        
+        Parameters:
+            name (str): Human-readable unique name of the tool.
+            description (str): Description of what the tool does.
+            usage (str): Example or instructions for using the tool.
+            tags (Optional[List[str]]): Optional list of tags categorizing the tool.
+        
+        Returns:
+            tool_id (int | None): The primary key of the newly inserted tool, or `None` if insertion did not produce an id.
+        """
         with self.get_session() as session:
             result = session.execute(
                 self.registered_tools.insert().values(
@@ -123,6 +212,12 @@ class SQLiteDatabase(Database):
             return result.inserted_primary_key[0]
 
     def get_tool(self, tool_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve a registered tool by its primary key.
+        
+        Returns:
+            dict: A dictionary mapping column names to values for the tool if found, `None` otherwise.
+        """
         with self.get_session() as session:
             result = session.execute(
                 self.registered_tools.select().where(
@@ -132,6 +227,16 @@ class SQLiteDatabase(Database):
             return dict(result._mapping) if result else None
 
     def get_tools_by_context(self, query_context: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Search registered tools by context and return up to `limit` matching tool records.
+        
+        Parameters:
+            query_context (str): Substring to match against a tool's description or usage (case-insensitive).
+            limit (int): Maximum number of matching tools to return.
+        
+        Returns:
+            List[Dict[str, Any]]: A list of matching tool records as dictionaries keyed by column names.
+        """
         with self.get_session() as session:
             results = session.execute(
                 self.registered_tools.select()
@@ -144,6 +249,12 @@ class SQLiteDatabase(Database):
             return [dict(row._mapping) for row in results]
 
     def get_all_tools(self) -> List[Dict[str, Any]]:
+        """
+        Retrieve all registered tools from the database.
+        
+        Returns:
+            A list of dictionaries where each dictionary represents a tool row with column names as keys and their values as values.
+        """
         with self.get_session() as session:
             results = session.execute(self.registered_tools.select()).fetchall()
             return [dict(row._mapping) for row in results]

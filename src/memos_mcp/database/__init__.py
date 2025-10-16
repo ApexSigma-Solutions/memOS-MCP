@@ -8,6 +8,20 @@ from ..config import settings
 _db_instance = None
 
 def get_database() -> Database:
+    """
+    Provide a singleton Database configured from environment variables or application settings.
+    
+    If the environment variable TESTING is set, an SQLite database using "test_memory.db" is returned. Otherwise the backend is selected from settings.memos_db_type:
+    - "sqlite": SQLiteDatabase configured with settings.memos_db_path
+    - "postgres": PostgresDatabase
+    - "neo4j": Neo4jDatabase
+    
+    Returns:
+        Database: the cached shared Database instance.
+    
+    Raises:
+        ValueError: if settings.memos_db_type contains an unsupported value.
+    """
     global _db_instance
     if _db_instance is None:
         if os.environ.get("TESTING"):
