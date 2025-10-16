@@ -37,9 +37,7 @@ class SQLiteDatabase(Database):
         self.metadata = MetaData()
         self._define_tables()
         self.metadata.create_all(bind=self.engine)
-        self.SessionLocal = sessionmaker(
-            autocommit=False, autoflush=False, bind=self.engine
-        )
+        self.SessionLocal = sessionmaker(bind=self.engine, autoflush=False)
 
     def _define_tables(self):
         """
