@@ -1,15 +1,14 @@
 import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 from fastmcp import FastMCP
 from . import logic
 from .database import get_database
 try:
     from .database.qdrant import get_qdrant_client
 except ImportError:
+    logger.info("Qdrant is not available. Proceeding without Qdrant support.")
     get_qdrant_client = None
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 mcp = FastMCP("MemOS Cognitive Server")
 
 @mcp.tool()
