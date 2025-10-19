@@ -34,19 +34,17 @@ class RegisteredTool(Base):
 
 
 class PostgresDatabase(Database):
-    def __init__(self):
-        self.database_url = os.environ.get("DATABASE_URL")
-        if not self.database_url:
-            self.host = os.environ.get("POSTGRES_HOST", "localhost")
-            self.port = int(os.environ.get("POSTGRES_PORT", 5432))
-            self.database = os.environ.get("POSTGRES_DB", "memos")
-            self.user = os.environ.get("POSTGRES_USER", "apexsigma_user")
-            self.password = os.environ.get("POSTGRES_PASSWORD", "your_secure_postgres_password_here")
-            self.database_url = f"postgresql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
+    from ..config import settings
 
-        self.engine = create_engine(self.database_url, echo=False)
-        self.SessionLocal = sessionmaker(autoflush=False, bind=self.engine)
-        Base.metadata.create_all(bind=self.engine)
+    class PostgresDatabase(Database):
+        def __init__(self):
+            self.database_url = os.environ.get("DATABASE_URL")
+            if not self.database_url:
+                self.database_url = f"postgresql://{settings.postgres_user}:{settings.postgres_password}@{settings.postgres_host}:{settings.postgres_port}/{settings.postgres_db}"
+
+            self.engine = create_engine(self.database_url, echo=False)
+            self.SessionLocal = sessionmaker(autoflush=False, bind=self.engine)
+            Base.metadata.create_all(bind=self.engine)
 
     @contextmanager
     def get_session(self) -> Session:
