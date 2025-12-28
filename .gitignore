@@ -1,6 +1,9 @@
-.env*
+.env
+.env.local
+.env.production
 .flaskenv*
 !.env.project
+!.env.example
 
 # Testing and development files
 test_*.py
@@ -217,3 +220,48 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Docker
+.dockerignore
+Dockerfile*
+docker-compose*.yml
+docker_backups/
+
+# IDEs - JetBrains (.idea)
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# IDEs - Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Editor swap files
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Local development folders
+.kilocode/
+.roo/
+.roomodes
+.github/instructions/
+.crush/
+.archive/
+
+# Logs
+logs/
+*.log
+
+# Workspace files
+*.code-workspace

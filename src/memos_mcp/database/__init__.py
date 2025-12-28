@@ -9,6 +9,7 @@ from ..config import settings
 _db_instance = None
 _db_lock = threading.Lock()
 
+
 def get_database() -> Database:
     global _db_instance
     if _db_instance is None:

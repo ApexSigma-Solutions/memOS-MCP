@@ -1,21 +1,31 @@
 version: '3.8'
 
+# =============================================================================
+# MemOS MCP Standalone Docker Configuration
+# =============================================================================
+# This compose file runs memos.MCP as a standalone service with SQLite.
+# For multi-project setup with OmegaKG, use docker-compose.yml at project root.
+#
+# Usage:
+#   docker-compose -f docker/docker-compose.yml up -d
+#   docker-compose -f docker/docker-compose.yml down
+# =============================================================================
+
 services:
   memos-mcp:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    container_name: memos-cognitive-server
+    container_name: memos_mcp_standalone
     ports:
-      - "8080:8080"
-    volumes:
-      - sqlite-data:/data/sqlite
-      - postgres-data:/data/postgres
-      - neo4j-data:/data/neo4j
+      - "8768:8768"
     environment:
+      - PYTHONUNBUFFERED=1
+      # Database configuration (default: SQLite)
       - MEMOS_DB_TYPE=${MEMOS_DB_TYPE:-sqlite}
       - MEMOS_DB_PATH=/data/sqlite/memory.db
-      - POSTGRES_HOST=${POSTGRES_HOST:-postgres}
+      # Optional: External databases (configure in .env)
+      - POSTGRES_HOST=${POSTGRES_HOST:-}
       - POSTGRES_PORT=${POSTGRES_PORT:-5432}
       - POSTGRES_DB=${POSTGRES_DB:-memos}
       - POSTGRES_USER=${POSTGRES_USER:-}
@@ -23,19 +33,21 @@ services:
       - NEO4J_URI=${NEO4J_URI:-}
       - NEO4J_USER=${NEO4J_USER:-}
       - NEO4J_PASSWORD=${NEO4J_PASSWORD:-}
-      - FASTMCP_LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - FASTMCP_TRANSPORT=${TRANSPORT:-sse}
+      # FastMCP server settings
+      - FASTMCP_SERVER_HOST=0.0.0.0
+      - FASTMCP_SERVER_PORT=8768
+      - FASTMCP_SERVER_LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - FASTMCP_SERVER_TRANSPORT=${TRANSPORT:-sse}
+    volumes:
+      - sqlite-data:/data/sqlite
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8768/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 10s
 
 volumes:
   sqlite-data:
-    driver: local
-  postgres-data:
-    driver: local
-  neo4j-data:
     driver: local

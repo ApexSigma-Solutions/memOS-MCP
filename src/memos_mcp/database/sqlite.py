@@ -17,6 +17,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import sessionmaker, Session
 from .base import Database
 
+
 class SQLiteDatabase(Database):
     def __init__(self, db_path: str = "memory.db"):
         if os.environ.get("TESTING"):
@@ -31,9 +32,7 @@ class SQLiteDatabase(Database):
         self.metadata = MetaData()
         self._define_tables()
         self.metadata.create_all(bind=self.engine)
-        self.SessionLocal = sessionmaker(
-            autoflush=False, bind=self.engine
-        )
+        self.SessionLocal = sessionmaker(autoflush=False, bind=self.engine)
 
     def _define_tables(self):
         self.memories = Table(
@@ -45,7 +44,12 @@ class SQLiteDatabase(Database):
             Column("memory_metadata", JSON, nullable=True),
             Column("embedding_id", String(255), nullable=True),
             Column("created_at", DateTime, default=lambda: datetime.now(timezone.utc)),
-            Column("updated_at", DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)),
+            Column(
+                "updated_at",
+                DateTime,
+                default=lambda: datetime.now(timezone.utc),
+                onupdate=lambda: datetime.now(timezone.utc),
+            ),
         )
 
         self.registered_tools = Table(
@@ -57,7 +61,12 @@ class SQLiteDatabase(Database):
             Column("usage", Text, nullable=False),
             Column("tags", JSON, nullable=True),
             Column("created_at", DateTime, default=lambda: datetime.now(timezone.utc)),
-            Column("updated_at", DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)),
+            Column(
+                "updated_at",
+                DateTime,
+                default=lambda: datetime.now(timezone.utc),
+                onupdate=lambda: datetime.now(timezone.utc),
+            ),
         )
 
     @contextmanager
@@ -72,7 +81,9 @@ class SQLiteDatabase(Database):
         finally:
             session.close()
 
-    def store_memory(self, content: str, agent_id: str, metadata: Optional[Dict[str, Any]] = None) -> Optional[int]:
+    def store_memory(
+        self, content: str, agent_id: str, metadata: Optional[Dict[str, Any]] = None
+    ) -> Optional[int]:
         with self.get_session() as session:
             result = session.execute(
                 self.memories.insert().values(
@@ -113,7 +124,9 @@ class SQLiteDatabase(Database):
             )
             return result.rowcount > 0
 
-    def register_tool(self, name: str, description: str, usage: str, tags: Optional[List[str]] = None) -> Optional[int]:
+    def register_tool(
+        self, name: str, description: str, usage: str, tags: Optional[List[str]] = None
+    ) -> Optional[int]:
         with self.get_session() as session:
             result = session.execute(
                 self.registered_tools.insert().values(
@@ -131,7 +144,9 @@ class SQLiteDatabase(Database):
             ).first()
             return dict(result._mapping) if result else None
 
-    def get_tools_by_context(self, query_context: str, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_tools_by_context(
+        self, query_context: str, limit: int = 10
+    ) -> List[Dict[str, Any]]:
         with self.get_session() as session:
             results = session.execute(
                 self.registered_tools.select()

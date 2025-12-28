@@ -8,14 +8,13 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
 async def store_memory(agent_id: str, content: str, metadata: dict = None) -> dict:
     """Store persistent memory for an agent"""
     db = get_database()
     try:
         memory_id = db.store_memory(
-            content=content,
-            agent_id=agent_id,
-            metadata=metadata
+            content=content, agent_id=agent_id, metadata=metadata
         )
         if memory_id is None:
             return {"status": "error", "message": "Failed to store memory"}
@@ -30,7 +29,7 @@ async def store_memory(agent_id: str, content: str, metadata: dict = None) -> di
             embedding=embedding,
             memory_id=memory_id,
             agent_id=agent_id,
-            metadata=metadata
+            metadata=metadata,
         )
         if point_id is None:
             logger.warning("Failed to store embedding for memory %s", memory_id)
@@ -49,16 +48,16 @@ async def retrieve_context(agent_id: str, query: str, top_k: int = 5) -> list:
     qdrant_client = get_qdrant_client()
     query_embedding = qdrant_client.generate_placeholder_embedding(query)
     search_results = qdrant_client.search_similar_memories(
-        query_embedding=query_embedding,
-        top_k=top_k,
-        agent_id=agent_id
+        query_embedding=query_embedding, top_k=top_k, agent_id=agent_id
     )
     memory_ids = [result["memory_id"] for result in search_results]
     if not memory_ids:
         return []
     try:
         memories = db.get_memories_by_ids(memory_ids)
-        memory_scores = {result["memory_id"]: result["score"] for result in search_results}
+        memory_scores = {
+            result["memory_id"]: result["score"] for result in search_results
+        }
         for memory in memories:
             memory["similarity_score"] = memory_scores.get(memory["id"])
         return memories
@@ -66,15 +65,15 @@ async def retrieve_context(agent_id: str, query: str, top_k: int = 5) -> list:
         logger.error("Failed to retrieve memories: %s", e)
         return []
 
-async def register_tool(tool_name: str, description: str, usage: str, tags: list = None) -> dict:
+
+async def register_tool(
+    tool_name: str, description: str, usage: str, tags: list = None
+) -> dict:
     """Register tool awareness in agent memory"""
     db = get_database()
     try:
         tool_id = db.register_tool(
-            name=tool_name,
-            description=description,
-            usage=usage,
-            tags=tags
+            name=tool_name, description=description, usage=usage, tags=tags
         )
         if tool_id is None:
             return {"status": "error", "message": "Failed to register tool"}
@@ -83,9 +82,11 @@ async def register_tool(tool_name: str, description: str, usage: str, tags: list
         logger.error("Failed to register tool: %s", e)
         return {"status": "error", "message": "Failed to register tool"}
 
+
 async def memory_graph(agent_id: str) -> dict:
     """Access agent's memory graph structure"""
     return {}
+
 
 async def tool_registry() -> list:
     """Access agent's known tools"""

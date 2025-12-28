@@ -137,7 +137,7 @@ class MemOSThreadSummarizer:
                     if git_status.returncode == 0
                     else []
                 )
-            except:
+            except OSError:
                 git_changes = ["git_not_available"]
 
             # Get recent git commits
@@ -175,7 +175,7 @@ class MemOSThreadSummarizer:
                     if docker_ps.returncode == 0
                     else []
                 )
-            except:
+            except OSError:
                 memos_containers = ["docker_not_available"]
 
             # Get network status
@@ -197,7 +197,7 @@ class MemOSThreadSummarizer:
                     if network_inspect.returncode == 0
                     else []
                 )
-            except:
+            except OSError:
                 network_containers = ["network_not_available"]
 
             # Check memory storage status
@@ -280,7 +280,6 @@ class MemOSThreadSummarizer:
         memos_keywords = {
             "memory": content_lower.count("memory"),
             "memos": content_lower.count("memos"),
-            "memory": content_lower.count("memory"),
             "context": content_lower.count("context"),
             "storage": content_lower.count("storage"),
             "postgres": content_lower.count("postgres"),
@@ -304,7 +303,6 @@ class MemOSThreadSummarizer:
                 for keyword in [
                     "memory",
                     "memos",
-                    "memory",
                     "context",
                     "storage",
                     "retrieve",

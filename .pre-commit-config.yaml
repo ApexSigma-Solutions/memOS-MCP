@@ -1,22 +1,29 @@
+# OA-003: Pre-commit configuration using Ruff exclusively
 # See https://pre-commit.com for more information
-# See https://pre-commit.com/hooks.html for more hooks
 repos:
--   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.2.0
+  # Pre-commit basic hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
     hooks:
-    -   id: trailing-whitespace
-    -   id: end-of-file-fixer
-    -   id: check-yaml
-    -   id: check-added-large-files
--   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.5.0
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+
+  # Ruff: Linting and Formatting (replaces flake8, black, isort)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
     hooks:
-    -   id: ruff
+      - id: ruff
         args: [--fix]
-    -   id: ruff-format
--   repo: local
+        name: ruff (linting with --fix)
+      - id: ruff-format
+        name: ruff-format (formatting)
+
+  # Poetry check
+  - repo: local
     hooks:
-    -   id: poetry-check
+      - id: poetry-check
         name: poetry-check
         entry: poetry check
         language: system

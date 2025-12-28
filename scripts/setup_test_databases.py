@@ -15,6 +15,7 @@ from pathlib import Path
 app_dir = Path(__file__).parent.parent / "app"
 sys.path.insert(0, str(app_dir))
 
+
 async def setup_minimal_postgres():
     """Setup minimal PostgreSQL for testing."""
     print("🗄️  Setting up PostgreSQL for testing...")
@@ -36,6 +37,7 @@ async def setup_minimal_postgres():
         print("💡 Suggestion: Ensure PostgreSQL is running or use SQLite fallback")
         return False
 
+
 async def setup_minimal_qdrant():
     """Setup minimal Qdrant for testing."""
     print("🔍 Setting up Qdrant for testing...")
@@ -44,7 +46,7 @@ async def setup_minimal_qdrant():
         from services.qdrant_client import get_qdrant_client
 
         client = get_qdrant_client()
-        info = client.get_collection_info()
+        _ = client.get_collection_info()  # Verify connection
 
         print("✅ Qdrant connection established")
         return True
@@ -53,6 +55,7 @@ async def setup_minimal_qdrant():
         print(f"❌ Qdrant setup failed: {e}")
         print("💡 Suggestion: Using in-memory embeddings for testing")
         return False
+
 
 async def setup_minimal_redis():
     """Setup minimal Redis for testing."""
@@ -71,6 +74,7 @@ async def setup_minimal_redis():
         print(f"❌ Redis setup failed: {e}")
         print("💡 Suggestion: Using in-memory caching for testing")
         return False
+
 
 async def setup_minimal_neo4j():
     """Setup minimal Neo4j for testing."""
@@ -95,6 +99,7 @@ async def setup_minimal_neo4j():
         print("💡 This is optional - integration tests can run without Neo4j")
         return False
 
+
 async def setup_test_environment():
     """Setup complete test environment."""
     print("🚀 Setting up memOS.as test environment...")
@@ -113,7 +118,7 @@ async def setup_test_environment():
         "REDIS_PORT": "6379",
         "NEO4J_URI": "bolt://localhost:7687",
         "NEO4J_USERNAME": "neo4j",
-        "NEO4J_PASSWORD": "password"
+        "NEO4J_PASSWORD": "password",
     }
 
     for key, default_value in test_env_vars.items():
@@ -128,7 +133,7 @@ async def setup_test_environment():
         "postgres": await setup_minimal_postgres(),
         "qdrant": await setup_minimal_qdrant(),
         "redis": await setup_minimal_redis(),
-        "neo4j": await setup_minimal_neo4j()
+        "neo4j": await setup_minimal_neo4j(),
     }
 
     print("\n" + "=" * 50)
@@ -143,14 +148,18 @@ async def setup_test_environment():
     for db, status in results.items():
         status_icon = "✅" if status else "❌"
         criticality = "ESSENTIAL" if db in essential_dbs else "optional"
-        print(f"{status_icon} {db:10} : {'ready' if status else 'not available':15} ({criticality})")
+        print(
+            f"{status_icon} {db:10} : {'ready' if status else 'not available':15} ({criticality})"
+        )
 
     print()
 
     if essential_ready:
         mode = "full" if all(results.values()) else "degraded"
         print(f"🎉 Test environment ready in {mode} mode!")
-        print(f"💪 Essential databases: {len([db for db in essential_dbs if results[db]])}/{len(essential_dbs)}")
+        print(
+            f"💪 Essential databases: {len([db for db in essential_dbs if results[db]])}/{len(essential_dbs)}"
+        )
         print(f"⚡ Optional databases: {optional_count}/{len(optional_dbs)}")
 
         if mode == "degraded":
@@ -162,6 +171,7 @@ async def setup_test_environment():
         print("❌ Test environment setup failed!")
         print("💥 Cannot run integration tests without essential databases")
         return False
+
 
 if __name__ == "__main__":
     success = asyncio.run(setup_test_environment())

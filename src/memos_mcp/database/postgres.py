@@ -8,6 +8,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
 
 from .base import Database
+from ..config import settings
 
 Base = declarative_base()
 
@@ -20,7 +21,12 @@ class Memory(Base):
     memory_metadata = Column(JSON, nullable=True)
     embedding_id = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
 
 class RegisteredTool(Base):
     __tablename__ = "registered_tools"
@@ -30,21 +36,22 @@ class RegisteredTool(Base):
     usage = Column(Text, nullable=False)
     tags = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
 
 
 class PostgresDatabase(Database):
-    from ..config import settings
+    def __init__(self):
+        self.database_url = os.environ.get("DATABASE_URL")
+        if not self.database_url:
+            self.database_url = f"postgresql://{settings.postgres_user}:{settings.postgres_password}@{settings.postgres_host}:{settings.postgres_port}/{settings.postgres_db}"
 
-    class PostgresDatabase(Database):
-        def __init__(self):
-            self.database_url = os.environ.get("DATABASE_URL")
-            if not self.database_url:
-                self.database_url = f"postgresql://{settings.postgres_user}:{settings.postgres_password}@{settings.postgres_host}:{settings.postgres_port}/{settings.postgres_db}"
-
-            self.engine = create_engine(self.database_url, echo=False)
-            self.SessionLocal = sessionmaker(autoflush=False, bind=self.engine)
-            Base.metadata.create_all(bind=self.engine)
+        self.engine = create_engine(self.database_url, echo=False)
+        self.SessionLocal = sessionmaker(autoflush=False, bind=self.engine)
+        Base.metadata.create_all(bind=self.engine)
 
     @contextmanager
     def get_session(self) -> Session:
@@ -58,9 +65,13 @@ class PostgresDatabase(Database):
         finally:
             session.close()
 
-    def store_memory(self, content: str, agent_id: str, metadata: Optional[Dict[str, Any]] = None) -> Optional[int]:
+    def store_memory(
+        self, content: str, agent_id: str, metadata: Optional[Dict[str, Any]] = None
+    ) -> Optional[int]:
         with self.get_session() as session:
-            memory = Memory(content=content, agent_id=agent_id, memory_metadata=metadata)
+            memory = Memory(
+                content=content, agent_id=agent_id, memory_metadata=metadata
+            )
             session.add(memory)
             session.flush()
             return memory.id
@@ -98,19 +109,31 @@ class PostgresDatabase(Database):
 
     def update_memory_embedding_id(self, memory_id: int, embedding_id: str) -> bool:
         with self.get_session() as session:
-            result = session.query(Memory).filter(Memory.id == memory_id).update({"embedding_id": embedding_id})
+            result = (
+                session.query(Memory)
+                .filter(Memory.id == memory_id)
+                .update({"embedding_id": embedding_id})
+            )
             return result > 0
 
-    def register_tool(self, name: str, description: str, usage: str, tags: Optional[List[str]] = None) -> Optional[int]:
+    def register_tool(
+        self, name: str, description: str, usage: str, tags: Optional[List[str]] = None
+    ) -> Optional[int]:
         with self.get_session() as session:
-            tool = RegisteredTool(name=name, description=description, usage=usage, tags=tags)
+            tool = RegisteredTool(
+                name=name, description=description, usage=usage, tags=tags
+            )
             session.add(tool)
             session.flush()
             return tool.id
 
     def get_tool(self, tool_id: int) -> Optional[Dict[str, Any]]:
         with self.get_session() as session:
-            tool = session.query(RegisteredTool).filter(RegisteredTool.id == tool_id).first()
+            tool = (
+                session.query(RegisteredTool)
+                .filter(RegisteredTool.id == tool_id)
+                .first()
+            )
             if tool:
                 return {
                     "id": tool.id,
@@ -123,7 +146,9 @@ class PostgresDatabase(Database):
                 }
             return None
 
-    def get_tools_by_context(self, query_context: str, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_tools_by_context(
+        self, query_context: str, limit: int = 10
+    ) -> List[Dict[str, Any]]:
         with self.get_session() as session:
             tools = (
                 session.query(RegisteredTool)

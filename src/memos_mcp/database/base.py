@@ -1,9 +1,12 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
+
 class Database(ABC):
     @abstractmethod
-    def store_memory(self, content: str, agent_id: str, metadata: Optional[Dict[str, Any]] = None) -> Optional[int]:
+    def store_memory(
+        self, content: str, agent_id: str, metadata: Optional[Dict[str, Any]] = None
+    ) -> Optional[int]:
         pass
 
     @abstractmethod
@@ -19,7 +22,9 @@ class Database(ABC):
         pass
 
     @abstractmethod
-    def register_tool(self, name: str, description: str, usage: str, tags: Optional[List[str]] = None) -> Optional[int]:
+    def register_tool(
+        self, name: str, description: str, usage: str, tags: Optional[List[str]] = None
+    ) -> Optional[int]:
         pass
 
     @abstractmethod
@@ -27,7 +32,9 @@ class Database(ABC):
         pass
 
     @abstractmethod
-    def get_tools_by_context(self, query_context: str, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_tools_by_context(
+        self, query_context: str, limit: int = 10
+    ) -> List[Dict[str, Any]]:
         pass
 
     @abstractmethod

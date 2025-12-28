@@ -2,6 +2,7 @@ from typing import Optional
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
@@ -27,12 +28,13 @@ class Settings(BaseSettings):
     memos_enable_graph_memory: bool = False
     memos_max_memory_size: int = 1000
 
-    @model_validator(mode='after')
-    def check_passwords(self) -> 'Settings':
+    @model_validator(mode="after")
+    def check_passwords(self) -> "Settings":
         if self.memos_db_type == "postgres" and not self.postgres_password:
             raise ValueError("POSTGRES_PASSWORD must be set when using PostgreSQL")
         if self.memos_enable_graph_memory and not self.neo4j_password:
             raise ValueError("NEO4J_PASSWORD must be set when graph memory is enabled")
         return self
+
 
 settings = Settings()
