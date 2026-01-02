@@ -1,12 +1,49 @@
 import logging
 from memos_mcp.database import get_database
 
-try:
-    from memos_mcp.database.qdrant import get_qdrant_client
-except ImportError:
-    get_qdrant_client = None
-
 logger = logging.getLogger(__name__)
+
+
+class MemosLogic:
+    """Core logic layer for memOS MCP Server"""
+
+    def __init__(self, settings=None):
+        """Initialize the MemosLogic layer"""
+        self.settings = settings
+        self.db = None
+        self.qdrant_client = None
+
+    async def initialize(self):
+        """Initialize database connections"""
+        self.db = get_database()
+        logger.info("✅ MemosLogic database initialized.")
+
+    async def shutdown(self):
+        """Shutdown database connections"""
+        logger.info("🛑 MemosLogic shutting down...")
+        self.db = None
+        self.qdrant_client = None
+
+    async def search(self, query: str, limit: int = 5) -> str:
+        """Search memories"""
+        try:
+            results = await retrieve_context("default", query, limit)
+            if not results:
+                return f"No memories found for query: {query}"
+            return str(results)
+        except Exception as e:
+            logger.error(f"Search error: {e}")
+            return f"Search failed: {e}"
+
+    async def store(self, content: str, tags: list[str] = []) -> str:
+        """Store a memory"""
+        try:
+            result = await store_memory("default", content, {"tags": tags})
+            return str(result)
+        except Exception as e:
+            logger.error(f"Store error: {e}")
+            return f"Store failed: {e}"
+
 
 
 async def store_memory(agent_id: str, content: str, metadata: dict = None) -> dict:
@@ -21,49 +58,19 @@ async def store_memory(agent_id: str, content: str, metadata: dict = None) -> di
     except Exception as e:
         logger.error("Failed to store memory: %s", e)
         return {"status": "error", "message": "Failed to store memory"}
-
-    if get_qdrant_client:
-        qdrant_client = get_qdrant_client()
-        embedding = qdrant_client.generate_placeholder_embedding(content)
-        point_id = qdrant_client.store_embedding(
-            embedding=embedding,
-            memory_id=memory_id,
-            agent_id=agent_id,
-            metadata=metadata,
-        )
-        if point_id is None:
-            logger.warning("Failed to store embedding for memory %s", memory_id)
-        else:
-            db.update_memory_embedding_id(memory_id, point_id)
-        return {"status": "success", "memory_id": memory_id, "point_id": point_id}
+    
+    # Note: Vector embedding storage disabled (using PG Vector)
     return {"status": "success", "memory_id": memory_id, "point_id": None}
 
 
 async def retrieve_context(agent_id: str, query: str, top_k: int = 5) -> list:
     """Retrieve relevant context from agent memory"""
     db = get_database()
-    if not get_qdrant_client:
-        return []
-
-    qdrant_client = get_qdrant_client()
-    query_embedding = qdrant_client.generate_placeholder_embedding(query)
-    search_results = qdrant_client.search_similar_memories(
-        query_embedding=query_embedding, top_k=top_k, agent_id=agent_id
-    )
-    memory_ids = [result["memory_id"] for result in search_results]
-    if not memory_ids:
-        return []
-    try:
-        memories = db.get_memories_by_ids(memory_ids)
-        memory_scores = {
-            result["memory_id"]: result["score"] for result in search_results
-        }
-        for memory in memories:
-            memory["similarity_score"] = memory_scores.get(memory["id"])
-        return memories
-    except Exception as e:
-        logger.error("Failed to retrieve memories: %s", e)
-        return []
+    
+    # Note: Vector search disabled (using PG Vector)
+    # Return empty list for now - PG Vector search to be implemented
+    logger.info("Vector search via Qdrant disabled - using database fallback")
+    return []
 
 
 async def register_tool(

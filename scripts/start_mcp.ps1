@@ -152,7 +152,7 @@ if ($Background -or $ShowConsole) {
         RedirectStandardError = $ServerErrLog
     }
 
-    $PoetryRunArgs = "run uvicorn memos_mcp.server:app --host $($env:MEMOS_HOST) --port $port"
+    $PoetryRunArgs = "run python -m memos_mcp.server --sse"
 
     Write-Host "[$Time]   [*] Command: poetry $PoetryRunArgs" -ForegroundColor Gray
     Write-Host ""
@@ -189,10 +189,10 @@ if ($Background -or $ShowConsole) {
 
     $PoetryRunArgs = @(
         "run",
-        "uvicorn",
-        "memos_mcp.server:app",
-        "--host", $env:MEMOS_HOST,
-        "--port", "$port"
+        "python",
+        "-m",
+        "memos_mcp.server",
+        "--sse"
     )
 
     Write-Host "[$Time]   [*] Command: poetry $($PoetryRunArgs -join ' ')" -ForegroundColor Gray

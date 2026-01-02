@@ -28,6 +28,27 @@ class Settings(BaseSettings):
     memos_enable_graph_memory: bool = False
     memos_max_memory_size: int = 1000
 
+    # Better Web Service (BWS) API Configuration
+    bws_access_token: Optional[str] = None
+    bws_api_key: Optional[str] = None
+    bws_api_secret: Optional[str] = None
+    bws_base_url: str = "https://api.betterwebservice.com"
+    bws_timeout: int = 30
+
+    # BWS Secret IDs (for Bitwarden integration)
+    linear_webhook_secret_prd_id: Optional[str] = None
+    postgres_password_prd_id: Optional[str] = None
+    neo4j_password_prd_id: Optional[str] = None
+    linear_api_key_prd_id: Optional[str] = None
+    perplexity_api_key_prd_id: Optional[str] = None
+    gemini_api_key_prd_id: Optional[str] = None
+    nanogpt_omegakg_api_key: Optional[str] = None
+    jwt_secret_key_id: Optional[str] = None
+    ollama_okg_api_key_prd_id: Optional[str] = None
+    hookdeck_api_key_prd_id: Optional[str] = None
+    bws_api_key_prd_id: Optional[str] = None
+    bws_api_secret_prd_id: Optional[str] = None
+
     @model_validator(mode="after")
     def check_passwords(self) -> "Settings":
         if self.memos_db_type == "postgres" and not self.postgres_password:
