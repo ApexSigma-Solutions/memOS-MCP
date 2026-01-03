@@ -24,6 +24,7 @@ PyJWT = "^2.0.0"
 PyYAML = "^6.0.0"
 python-multipart = "^0.0.6"
 langfuse = "^3.3.0"
+redis = "^5.0.0"
 
 [tool.poetry.group.dev.dependencies]
 # Development Dependencies

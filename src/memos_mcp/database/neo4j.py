@@ -1,5 +1,24 @@
 from typing import Any, Dict, List, Optional
+from neo4j import GraphDatabase, Driver
+from ..config import settings
 from .base import Database
+
+_driver: Optional[Driver] = None
+
+def get_neo4j_driver() -> Optional[Driver]:
+    """Get or create gridbal Neo4j driver."""
+    global _driver
+    if _driver is None and settings.neo4j_uri:
+        auth = None
+        if settings.neo4j_user and settings.neo4j_password:
+            auth = (settings.neo4j_user, settings.neo4j_password)
+        
+        try:
+            _driver = GraphDatabase.driver(settings.neo4j_uri, auth=auth)
+        except Exception as e:
+            print(f"Failed to initialize Neo4j driver: {e}")
+            return None
+    return _driver
 
 
 class Neo4jDatabase(Database):

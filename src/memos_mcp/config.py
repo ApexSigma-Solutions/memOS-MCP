@@ -33,6 +33,17 @@ class Settings(BaseSettings):
     memos_enable_graph_memory: bool = False
     memos_max_memory_size: int = 1000
 
+    # Redis settings (ephemeral memory)
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_password: Optional[str] = None
+    redis_db: int = 0
+
+    # InGest-LLM settings (memory promotion)
+    ingest_llm_url: str = "http://localhost:8000"
+    ingest_llm_timeout: int = 30
+    memory_promotion_threshold: float = 0.7  # Auto-promote if significance >= threshold
+
     # Better Web Service (BWS) API Configuration
     bws_access_token: Optional[str] = None
     bws_api_key: Optional[str] = None

@@ -16,7 +16,22 @@ from memos_mcp.config import Settings
 from memos_mcp.logic import MemosLogic
 
 # Import Tools (The Mirmir Bridge)
+# Import Tools
 from memos_mcp.tools.intelligence import consult_mirmir
+from memos_mcp.tools.context import (
+    retrieve_context, 
+    get_concepts, 
+    get_constraints
+)
+from memos_mcp.tools.memory import (
+    scratch_write, 
+    scratch_read, 
+    scratch_clear,
+    set_working_memory,
+    get_working_memory,
+    mark_significant,
+    promote_memory
+)
 
 # Configure Logging
 logging.basicConfig(
@@ -58,10 +73,9 @@ async def lifespan(server: FastMCP) -> AsyncIterator[None]:
 
 
 # Initialize FastMCP
-mcp_server = FastMCP("memOS", lifespan=lifespan, dependencies=["neo4j", "pydantic"])
+mcp_server = FastMCP("memOS", lifespan=lifespan, dependencies=["neo4j", "pydantic", "redis"])
 
 # Export app for uvicorn compatibility
-# Note: FastMCP 2.x uses run(transport="http") instead of http_app()
 app = mcp_server
 
 # --- REGISTER TOOLS ---
@@ -69,22 +83,21 @@ app = mcp_server
 # 1. Intelligence Layer (The Brain)
 mcp_server.add_tool(consult_mirmir)
 
+# 2. Context Retrieval (Queries)
+mcp_server.add_tool(retrieve_context)
+mcp_server.add_tool(get_concepts)
+mcp_server.add_tool(get_constraints)
 
-# 2. Memory Tools (Placeholders for Logic Layer)
-@mcp_server.tool()
-async def search_memory(query: str, limit: int = 5) -> str:
-    """Searches the memOS knowledge base/vector store."""
-    if not logic_instance:
-        return "Error: System not initialized."
-    return await logic_instance.search(query, limit)
+# 3. Working Memory (Hands)
+mcp_server.add_tool(scratch_write)
+mcp_server.add_tool(scratch_read)
+mcp_server.add_tool(scratch_clear)
+mcp_server.add_tool(set_working_memory)
+mcp_server.add_tool(get_working_memory)
 
-
-@mcp_server.tool()
-async def store_memory(content: str, tags: list[str] = []) -> str:
-    """Stores a new memory fragment."""
-    if not logic_instance:
-        return "Error: System not initialized."
-    return await logic_instance.store(content, tags)
+# 4. Learning (Hands -> Brain)
+mcp_server.add_tool(mark_significant)
+mcp_server.add_tool(promote_memory)
 
 
 @mcp_server.resource("config://status")
