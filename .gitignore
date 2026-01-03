@@ -5,9 +5,8 @@
 !.env.project
 !.env.example
 
-# Testing and development files
-test_*.py
-*_test.py
+# Testing and development files (temporary/debug only)
+# Note: test_*.py files in tests/ are NOT ignored - proper tests should be committed
 debug_*.py
 *demo*.py
 activate_langfuse*.py

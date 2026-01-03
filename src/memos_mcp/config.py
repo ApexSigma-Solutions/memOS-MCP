@@ -10,10 +10,15 @@ class Settings(BaseSettings):
     memos_db_path: str = "/data/sqlite/memory.db"
 
     postgres_host: str = "localhost"
-    postgres_port: int = 5432
-    postgres_db: str = "memos"
-    postgres_user: str = "memos_user"
+    postgres_port: int = 5800
+    postgres_db: str = "omega_kg_stable"
+    postgres_user: str = "omega_user"
     postgres_password: Optional[str] = None
+    postgres_schema: str = "memos"
+    
+    # PGVector settings
+    embedding_dimension: int = 1024
+    embedding_model: str = "placeholder"  # Use "bge-m3" or "openai" in production
 
     neo4j_uri: str = "bolt://localhost:7687"
     neo4j_user: str = "neo4j"

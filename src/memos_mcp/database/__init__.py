@@ -4,7 +4,19 @@ from .base import Database
 from .sqlite import SQLiteDatabase
 from .postgres import PostgresDatabase
 from .neo4j import Neo4jDatabase
+from .pgvector_store import PGVectorStore, get_pgvector_store, init_pgvector_store
 from ..config import settings
+
+__all__ = [
+    "Database",
+    "SQLiteDatabase", 
+    "PostgresDatabase",
+    "Neo4jDatabase",
+    "PGVectorStore",
+    "get_pgvector_store",
+    "init_pgvector_store",
+    "get_database",
+]
 
 _db_instance = None
 _db_lock = threading.Lock()
