@@ -49,6 +49,10 @@ poetry install
 
 # Start MCP server
 fastmcp run src/memos_mcp/server.py
+
+# Reorganized Scripts (db-ops, maintenance, startup, utils)
+# Example: Initialize database
+poetry run python scripts/db-ops/init-database.py
 ```
 
 ## Tools
@@ -69,5 +73,6 @@ fastmcp run src/memos_mcp/server.py
 
 ## Documentation
 
+- [OmegaVault/ApexSigma/Development/Projects/memos.MCP](../OmegaVault/ApexSigma/Development/Projects/memos.MCP) - Centralized Documentation
 - [ARCHITECTURE.md](ARCHITECTURE.md) - System Design
 - [BUILD.md](BUILD.md) - Build Guide
