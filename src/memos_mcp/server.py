@@ -76,7 +76,22 @@ async def lifespan(server: FastMCP) -> AsyncIterator[None]:
 mcp_server = FastMCP("memOS", lifespan=lifespan, dependencies=["neo4j", "pydantic", "redis"])
 
 # Export app for uvicorn compatibility
+# Export app for uvicorn compatibility
 app = mcp_server
+
+# --- CORS Middleware ---
+from fastapi.middleware.cors import CORSMiddleware
+try:
+    # Attempt to add middleware (FastMCP should expose Starlette/FastAPI interface)
+    mcp_server.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+except AttributeError:
+    logger.warning("Could not add CORS middleware to FastMCP instance - check FastMCP version")
 
 # --- REGISTER TOOLS ---
 
@@ -106,6 +121,9 @@ def get_system_status() -> str:
     status = "ONLINE" if logic_instance else "INITIALIZING"
     return f"memOS Status: {status}\nIntelligence Layer: ACTIVE (Mirmir Connected)"
 
+
+# HTTP Endpoints removed as FastMCP does not support arbitrary HTTP routes directly.
+# Use MCP tools instead.
 
 if __name__ == "__main__":
     import sys
