@@ -45,11 +45,11 @@ class MemosLogic:
     async def search(self, query: str, limit: int = 5) -> str:
         """
         Search memories using semantic similarity.
-        
+
         Args:
             query: The search query text
             limit: Maximum number of results to return
-            
+
         Returns:
             String representation of search results
         """
@@ -57,14 +57,14 @@ class MemosLogic:
             results = await retrieve_context("default", query, limit)
             if not results:
                 return f"No memories found for query: {query}"
-            
+
             # Format results for display
             formatted = []
             for r in results:
                 score = r.get("similarity", 0)
                 content = r.get("content", "")[:200]  # Truncate for display
                 formatted.append(f"[{score:.2f}] {content}...")
-            
+
             return "\n".join(formatted)
         except Exception as e:
             logger.error(f"Search error: {e}")
@@ -73,11 +73,11 @@ class MemosLogic:
     async def store(self, content: str, tags: Optional[List[str]] = None) -> str:
         """
         Store a memory with embedding.
-        
+
         Args:
             content: The memory content to store
             tags: Optional list of tags
-            
+
         Returns:
             String representation of the result
         """
@@ -108,26 +108,26 @@ async def store_memory(
 ) -> Dict[str, Any]:
     """
     Store persistent memory for an agent with vector embedding.
-    
+
     Args:
         agent_id: ID of the agent storing the memory
         content: The memory content
         metadata: Optional metadata dict
-        
+
     Returns:
         Dict with status, memory_id, and embedding info
     """
     pgvector = get_pgvector_store()
-    
+
     try:
         # Extract tags from metadata if present
         tags = None
         if metadata and "tags" in metadata:
             tags = metadata.pop("tags", None)
-        
-        # Generate placeholder embedding (replace with real model in production)
-        embedding = pgvector.generate_placeholder_embedding(content)
-        
+
+        # Generate embedding
+        embedding = await pgvector.generate_embedding(content)
+
         memory_id = await pgvector.store_memory(
             content=content,
             agent_id=agent_id,
@@ -136,7 +136,7 @@ async def store_memory(
             metadata=metadata,
             tags=tags,
         )
-        
+
         logger.info(f"Stored memory {memory_id} for agent {agent_id}")
         return {
             "status": "success",
@@ -144,7 +144,7 @@ async def store_memory(
             "has_embedding": True,
             "embedding_model": settings.embedding_model,
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to store memory: {e}")
         return {"status": "error", "message": str(e)}
@@ -158,32 +158,32 @@ async def retrieve_context(
 ) -> List[Dict[str, Any]]:
     """
     Retrieve relevant context from agent memory using semantic search.
-    
+
     Args:
         agent_id: ID of the agent
         query: The search query
         top_k: Number of results to return
         score_threshold: Minimum similarity score
-        
+
     Returns:
         List of matching memories with similarity scores
     """
     pgvector = get_pgvector_store()
-    
+
     try:
         # Generate query embedding
-        query_embedding = pgvector.generate_placeholder_embedding(query)
-        
+        query_embedding = await pgvector.generate_embedding(query)
+
         results = await pgvector.search_memories(
             query_embedding=query_embedding,
             top_k=top_k,
             score_threshold=score_threshold,
             agent_id=agent_id if agent_id != "default" else None,
         )
-        
+
         logger.debug(f"Retrieved {len(results)} memories for query")
         return results
-        
+
     except Exception as e:
         logger.error(f"Failed to retrieve context: {e}")
         return []

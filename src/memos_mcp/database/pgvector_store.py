@@ -21,6 +21,7 @@ import asyncpg
 from asyncpg import Pool
 
 from ..config import settings
+from ..services import ollama_service
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ logger = logging.getLogger(__name__)
 class PGVectorStore:
     """
     PostgreSQL vector store implementation using pgvector.
-    
+
     Uses the 'memos' schema with:
     - memories: Main table storing content, embeddings, and metadata
     - memory_audit: Audit log for all operations
@@ -42,7 +43,7 @@ class PGVectorStore:
     ):
         """
         Initialize PGVectorStore.
-        
+
         Args:
             pool: Optional asyncpg connection pool. If not provided, one will
                   be created on first use.
@@ -87,6 +88,7 @@ class PGVectorStore:
     ) -> None:
         """Log an operation to the audit table."""
         import json
+
         await conn.execute(
             f"""
             INSERT INTO {self._schema}.memory_audit 
@@ -114,7 +116,7 @@ class PGVectorStore:
     ) -> int:
         """
         Store a memory with optional embedding.
-        
+
         Args:
             content: The text content of the memory
             agent_id: ID of the agent storing the memory
@@ -122,13 +124,14 @@ class PGVectorStore:
             embedding_model: Name of the model used to generate embedding
             metadata: Optional JSONB metadata
             tags: Optional list of tags
-            
+
         Returns:
             The ID of the stored memory
         """
         import json
+
         pool = await self._get_pool()
-        
+
         async with pool.acquire() as conn:
             # Convert embedding to pgvector format if provided
             embedding_str = None
@@ -139,7 +142,7 @@ class PGVectorStore:
                         f"got {len(embedding)}"
                     )
                 embedding_str = f"[{','.join(map(str, embedding))}]"
-            
+
             memory_id = await conn.fetchval(
                 f"""
                 INSERT INTO {self._schema}.memories 
@@ -154,12 +157,18 @@ class PGVectorStore:
                 json.dumps(metadata) if metadata else None,
                 tags,
             )
-            
+
             await self._log_audit(
-                conn, memory_id, "INSERT", agent_id,
-                {"content_length": len(content), "has_embedding": embedding is not None}
+                conn,
+                memory_id,
+                "INSERT",
+                agent_id,
+                {
+                    "content_length": len(content),
+                    "has_embedding": embedding is not None,
+                },
             )
-            
+
             logger.debug(f"Stored memory {memory_id} for agent {agent_id}")
             return memory_id
 
@@ -177,14 +186,14 @@ class PGVectorStore:
     ) -> List[Dict[str, Any]]:
         """
         Search for similar memories using vector similarity.
-        
+
         Args:
             query_embedding: The query vector (1024 dimensions)
             top_k: Maximum number of results to return
             score_threshold: Minimum similarity score (0.0 to 1.0)
             agent_id: Optional filter by agent ID
             tags: Optional filter by tags (any match)
-            
+
         Returns:
             List of matching memories with similarity scores
         """
@@ -193,27 +202,27 @@ class PGVectorStore:
                 f"Query embedding dimension mismatch: expected {self._embedding_dimension}, "
                 f"got {len(query_embedding)}"
             )
-        
+
         pool = await self._get_pool()
         embedding_str = f"[{','.join(map(str, query_embedding))}]"
-        
+
         # Build query with optional filters
         where_clauses = ["embedding IS NOT NULL"]
         params: List[Any] = [embedding_str, top_k]
         param_idx = 3
-        
+
         if agent_id:
             where_clauses.append(f"agent_id = ${param_idx}")
             params.append(agent_id)
             param_idx += 1
-        
+
         if tags:
             where_clauses.append(f"tags && ${param_idx}")
             params.append(tags)
             param_idx += 1
-        
+
         where_sql = " AND ".join(where_clauses)
-        
+
         async with pool.acquire() as conn:
             rows = await conn.fetch(
                 f"""
@@ -233,22 +242,24 @@ class PGVectorStore:
                 """,
                 *params,
             )
-            
+
             results = []
             for row in rows:
                 similarity = float(row["similarity"])
                 if similarity >= score_threshold:
-                    results.append({
-                        "id": row["id"],
-                        "content": row["content"],
-                        "agent_id": row["agent_id"],
-                        "metadata": row["memory_metadata"],
-                        "tags": row["tags"],
-                        "created_at": row["created_at"],
-                        "updated_at": row["updated_at"],
-                        "similarity": similarity,
-                    })
-            
+                    results.append(
+                        {
+                            "id": row["id"],
+                            "content": row["content"],
+                            "agent_id": row["agent_id"],
+                            "metadata": row["memory_metadata"],
+                            "tags": row["tags"],
+                            "created_at": row["created_at"],
+                            "updated_at": row["updated_at"],
+                            "similarity": similarity,
+                        }
+                    )
+
             logger.debug(f"Search returned {len(results)} results")
             return results
 
@@ -259,15 +270,15 @@ class PGVectorStore:
     async def get_memory(self, memory_id: int) -> Optional[Dict[str, Any]]:
         """
         Retrieve a single memory by ID.
-        
+
         Args:
             memory_id: The ID of the memory
-            
+
         Returns:
             The memory dict or None if not found
         """
         pool = await self._get_pool()
-        
+
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
                 f"""
@@ -278,7 +289,7 @@ class PGVectorStore:
                 """,
                 memory_id,
             )
-            
+
             if row:
                 return {
                     "id": row["id"],
@@ -300,17 +311,17 @@ class PGVectorStore:
     ) -> List[Dict[str, Any]]:
         """
         Retrieve memories for a specific agent.
-        
+
         Args:
             agent_id: The agent ID to filter by
             limit: Maximum number of results
             offset: Pagination offset
-            
+
         Returns:
             List of memories
         """
         pool = await self._get_pool()
-        
+
         async with pool.acquire() as conn:
             rows = await conn.fetch(
                 f"""
@@ -325,7 +336,7 @@ class PGVectorStore:
                 limit,
                 offset,
             )
-            
+
             return [
                 {
                     "id": row["id"],
@@ -347,16 +358,16 @@ class PGVectorStore:
     async def delete_memory(self, memory_id: int, agent_id: str = "system") -> bool:
         """
         Delete a memory by ID.
-        
+
         Args:
             memory_id: The ID of the memory to delete
             agent_id: The agent performing the deletion (for audit)
-            
+
         Returns:
             True if deleted, False if not found
         """
         pool = await self._get_pool()
-        
+
         async with pool.acquire() as conn:
             async with conn.transaction():
                 result = await conn.execute(
@@ -364,13 +375,11 @@ class PGVectorStore:
                     memory_id,
                 )
                 deleted = result == "DELETE 1"
-                
+
                 if deleted:
-                    await self._log_audit(
-                        conn, memory_id, "DELETE", agent_id, None
-                    )
+                    await self._log_audit(conn, memory_id, "DELETE", agent_id, None)
                     logger.debug(f"Deleted memory {memory_id}")
-                
+
                 return deleted
 
     # =========================================================================
@@ -386,13 +395,13 @@ class PGVectorStore:
     ) -> bool:
         """
         Update the embedding for an existing memory.
-        
+
         Args:
             memory_id: The ID of the memory
             embedding: The new embedding vector
             embedding_model: Name of the model used
             agent_id: The agent performing the update (for audit)
-            
+
         Returns:
             True if updated, False if not found
         """
@@ -401,10 +410,10 @@ class PGVectorStore:
                 f"Embedding dimension mismatch: expected {self._embedding_dimension}, "
                 f"got {len(embedding)}"
             )
-        
+
         pool = await self._get_pool()
         embedding_str = f"[{','.join(map(str, embedding))}]"
-        
+
         async with pool.acquire() as conn:
             async with conn.transaction():
                 result = await conn.execute(
@@ -418,14 +427,17 @@ class PGVectorStore:
                     memory_id,
                 )
                 updated = result == "UPDATE 1"
-                
+
                 if updated:
                     await self._log_audit(
-                        conn, memory_id, "UPDATE_EMBEDDING", agent_id,
-                        {"embedding_model": embedding_model}
+                        conn,
+                        memory_id,
+                        "UPDATE_EMBEDDING",
+                        agent_id,
+                        {"embedding_model": embedding_model},
                     )
                     logger.debug(f"Updated embedding for memory {memory_id}")
-                
+
                 return updated
 
     # =========================================================================
@@ -435,7 +447,7 @@ class PGVectorStore:
     async def get_stats(self) -> Dict[str, Any]:
         """Get statistics about the memory store."""
         pool = await self._get_pool()
-        
+
         async with pool.acquire() as conn:
             total_count = await conn.fetchval(
                 f"SELECT COUNT(*) FROM {self._schema}.memories"
@@ -450,40 +462,24 @@ class PGVectorStore:
                 GROUP BY agent_id
                 """
             )
-            
+
             return {
                 "total_memories": total_count,
                 "embedded_memories": embedded_count,
                 "memories_by_agent": {r["agent_id"]: r["count"] for r in agent_counts},
             }
 
-    def generate_placeholder_embedding(self, text: str) -> List[float]:
+    async def generate_embedding(self, text: str) -> List[float]:
         """
-        Generate a placeholder embedding from text using MD5 hash.
-        
-        This is for development/testing only. In production, use a real
-        embedding model like sentence-transformers or OpenAI embeddings.
-        
+        Generate a real embedding from text using Ollama.
+
         Args:
             text: The text to generate an embedding for
-            
+
         Returns:
-            A 1024-dimension placeholder embedding
+            A 1024-dimension embedding (if using bge-m3)
         """
-        # Create a deterministic hash
-        hash_bytes = hashlib.md5(text.encode()).digest()
-        
-        # Expand to 1024 dimensions by repeating and varying
-        embedding = []
-        for i in range(self._embedding_dimension):
-            byte_idx = i % len(hash_bytes)
-            variation = (i // len(hash_bytes)) * 0.01
-            value = (hash_bytes[byte_idx] / 255.0) * 2 - 1 + variation
-            # Clamp to [-1, 1]
-            value = max(-1.0, min(1.0, value))
-            embedding.append(value)
-        
-        return embedding
+        return await ollama_service.get_embedding(text)
 
 
 # Global instance (lazy initialization)

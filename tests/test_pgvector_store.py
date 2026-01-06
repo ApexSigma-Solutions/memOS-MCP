@@ -13,9 +13,11 @@ Tests cover:
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
+import unittest
 from datetime import datetime, timezone
 
 import sys
+
 sys.path.insert(0, "src")
 
 
@@ -27,68 +29,58 @@ class TestPGVectorStoreUnit:
         """Create a mock asyncpg connection pool."""
         pool = MagicMock()
         conn = MagicMock()
-        
+
         # Create async methods on connection
         conn.fetchval = AsyncMock()
         conn.fetch = AsyncMock()
         conn.fetchrow = AsyncMock()
         conn.execute = AsyncMock()
-        
+
         # Create transaction context manager
         tx_cm = MagicMock()
         tx_cm.__aenter__ = AsyncMock(return_value=None)
         tx_cm.__aexit__ = AsyncMock(return_value=None)
         conn.transaction.return_value = tx_cm
-        
+
         # Create pool.acquire() async context manager
         pool_cm = MagicMock()
         pool_cm.__aenter__ = AsyncMock(return_value=conn)
         pool_cm.__aexit__ = AsyncMock(return_value=None)
         pool.acquire.return_value = pool_cm
-        
+
         # Make pool.close() async
         pool.close = AsyncMock()
-        
+
         return pool, conn
 
     @pytest.fixture
     def store(self):
         """Create a PGVectorStore instance."""
         from memos_mcp.database.pgvector_store import PGVectorStore
+
         return PGVectorStore(schema="memos", embedding_dimension=1024)
 
     # =========================================================================
     # EMBEDDING GENERATION TESTS
     # =========================================================================
 
-    def test_generate_placeholder_embedding_dimension(self, store):
-        """Test that placeholder embeddings have correct dimension."""
-        text = "test content"
-        embedding = store.generate_placeholder_embedding(text)
-        
-        assert len(embedding) == 1024
-        assert all(isinstance(v, float) for v in embedding)
+    # =========================================================================
+    # EMBEDDING GENERATION TESTS
+    # =========================================================================
 
-    def test_generate_placeholder_embedding_deterministic(self, store):
-        """Test that same text produces same embedding."""
-        text = "hello world"
-        emb1 = store.generate_placeholder_embedding(text)
-        emb2 = store.generate_placeholder_embedding(text)
-        
-        assert emb1 == emb2
+    @pytest.mark.asyncio
+    async def test_generate_embedding_success(self, store):
+        """Test successful embedding generation."""
+        with unittest.mock.patch(
+            "memos_mcp.database.pgvector_store.ollama_service"
+        ) as mock_service:
+            mock_service.get_embedding = AsyncMock(return_value=[0.1] * 1024)
 
-    def test_generate_placeholder_embedding_different_texts(self, store):
-        """Test that different texts produce different embeddings."""
-        emb1 = store.generate_placeholder_embedding("text one")
-        emb2 = store.generate_placeholder_embedding("text two")
-        
-        assert emb1 != emb2
+            embedding = await store.generate_embedding("test")
 
-    def test_generate_placeholder_embedding_range(self, store):
-        """Test that embedding values are in valid range."""
-        embedding = store.generate_placeholder_embedding("test")
-        
-        assert all(-1.0 <= v <= 1.0 for v in embedding)
+            assert len(embedding) == 1024
+            assert embedding[0] == 0.1
+            mock_service.get_embedding.assert_called_once_with("test")
 
     # =========================================================================
     # STORE MEMORY TESTS
@@ -101,7 +93,7 @@ class TestPGVectorStoreUnit:
         store._pool = pool
         conn.fetchval.return_value = 42
         conn.execute.return_value = None
-        
+
         embedding = [0.1] * 1024
         memory_id = await store.store_memory(
             content="test content",
@@ -111,7 +103,7 @@ class TestPGVectorStoreUnit:
             metadata={"key": "value"},
             tags=["tag1", "tag2"],
         )
-        
+
         assert memory_id == 42
         conn.fetchval.assert_called_once()
         # Verify audit was logged
@@ -124,12 +116,12 @@ class TestPGVectorStoreUnit:
         store._pool = pool
         conn.fetchval.return_value = 1
         conn.execute.return_value = None
-        
+
         memory_id = await store.store_memory(
             content="test content",
             agent_id="test_agent",
         )
-        
+
         assert memory_id == 1
 
     @pytest.mark.asyncio
@@ -137,9 +129,9 @@ class TestPGVectorStoreUnit:
         """Test that wrong embedding dimension raises error."""
         pool, conn = mock_pool
         store._pool = pool
-        
+
         embedding = [0.1] * 512  # Wrong dimension
-        
+
         with pytest.raises(ValueError, match="dimension mismatch"):
             await store.store_memory(
                 content="test",
@@ -155,7 +147,7 @@ class TestPGVectorStoreUnit:
         """Test successful semantic search."""
         pool, conn = mock_pool
         store._pool = pool
-        
+
         # Mock search results
         mock_row = {
             "id": 1,
@@ -168,13 +160,13 @@ class TestPGVectorStoreUnit:
             "similarity": 0.85,
         }
         conn.fetch.return_value = [mock_row]
-        
+
         query_embedding = [0.1] * 1024
         results = await store.search_memories(
             query_embedding=query_embedding,
             top_k=5,
         )
-        
+
         assert len(results) == 1
         assert results[0]["id"] == 1
         assert results[0]["similarity"] == 0.85
@@ -184,7 +176,7 @@ class TestPGVectorStoreUnit:
         """Test search with score threshold."""
         pool, conn = mock_pool
         store._pool = pool
-        
+
         # Return result below threshold
         mock_row = {
             "id": 1,
@@ -197,12 +189,12 @@ class TestPGVectorStoreUnit:
             "similarity": 0.3,  # Below threshold
         }
         conn.fetch.return_value = [mock_row]
-        
+
         results = await store.search_memories(
             query_embedding=[0.1] * 1024,
             score_threshold=0.5,  # Threshold
         )
-        
+
         assert len(results) == 0  # Filtered out
 
     @pytest.mark.asyncio
@@ -210,7 +202,7 @@ class TestPGVectorStoreUnit:
         """Test search with wrong query dimension."""
         pool, conn = mock_pool
         store._pool = pool
-        
+
         with pytest.raises(ValueError, match="dimension mismatch"):
             await store.search_memories(
                 query_embedding=[0.1] * 512,
@@ -222,12 +214,12 @@ class TestPGVectorStoreUnit:
         pool, conn = mock_pool
         store._pool = pool
         conn.fetch.return_value = []
-        
+
         await store.search_memories(
             query_embedding=[0.1] * 1024,
             agent_id="specific_agent",
         )
-        
+
         # Verify the query includes agent filter
         call_args = conn.fetch.call_args
         assert "specific_agent" in call_args[0]
@@ -241,7 +233,7 @@ class TestPGVectorStoreUnit:
         """Test retrieving existing memory."""
         pool, conn = mock_pool
         store._pool = pool
-        
+
         mock_row = {
             "id": 1,
             "content": "test content",
@@ -253,9 +245,9 @@ class TestPGVectorStoreUnit:
             "updated_at": datetime.now(timezone.utc),
         }
         conn.fetchrow.return_value = mock_row
-        
+
         result = await store.get_memory(1)
-        
+
         assert result is not None
         assert result["id"] == 1
         assert result["content"] == "test content"
@@ -266,9 +258,9 @@ class TestPGVectorStoreUnit:
         pool, conn = mock_pool
         store._pool = pool
         conn.fetchrow.return_value = None
-        
+
         result = await store.get_memory(999)
-        
+
         assert result is None
 
     @pytest.mark.asyncio
@@ -276,7 +268,7 @@ class TestPGVectorStoreUnit:
         """Test retrieving memories by agent."""
         pool, conn = mock_pool
         store._pool = pool
-        
+
         mock_rows = [
             {
                 "id": 1,
@@ -300,9 +292,9 @@ class TestPGVectorStoreUnit:
             },
         ]
         conn.fetch.return_value = mock_rows
-        
+
         results = await store.get_memories_by_agent("agent1", limit=10)
-        
+
         assert len(results) == 2
 
     # =========================================================================
@@ -315,9 +307,9 @@ class TestPGVectorStoreUnit:
         pool, conn = mock_pool
         store._pool = pool
         conn.execute.return_value = "DELETE 1"
-        
+
         result = await store.delete_memory(1, "test_agent")
-        
+
         assert result is True
 
     @pytest.mark.asyncio
@@ -326,9 +318,9 @@ class TestPGVectorStoreUnit:
         pool, conn = mock_pool
         store._pool = pool
         conn.execute.return_value = "DELETE 0"
-        
+
         result = await store.delete_memory(999, "test_agent")
-        
+
         assert result is False
 
     # =========================================================================
@@ -341,13 +333,13 @@ class TestPGVectorStoreUnit:
         pool, conn = mock_pool
         store._pool = pool
         conn.execute.return_value = "UPDATE 1"
-        
+
         result = await store.update_embedding(
             memory_id=1,
             embedding=[0.2] * 1024,
             embedding_model="new_model",
         )
-        
+
         assert result is True
 
     @pytest.mark.asyncio
@@ -355,7 +347,7 @@ class TestPGVectorStoreUnit:
         """Test update with wrong embedding dimension."""
         pool, conn = mock_pool
         store._pool = pool
-        
+
         with pytest.raises(ValueError, match="dimension mismatch"):
             await store.update_embedding(
                 memory_id=1,
@@ -372,15 +364,15 @@ class TestPGVectorStoreUnit:
         """Test getting memory statistics."""
         pool, conn = mock_pool
         store._pool = pool
-        
+
         conn.fetchval.side_effect = [100, 80]  # total, embedded
         conn.fetch.return_value = [
             {"agent_id": "agent1", "count": 50},
             {"agent_id": "agent2", "count": 50},
         ]
-        
+
         stats = await store.get_stats()
-        
+
         assert stats["total_memories"] == 100
         assert stats["embedded_memories"] == 80
         assert stats["memories_by_agent"]["agent1"] == 50
@@ -394,9 +386,9 @@ class TestPGVectorStoreUnit:
         """Test closing the connection pool."""
         pool, _ = mock_pool
         store._pool = pool
-        
+
         await store.close()
-        
+
         pool.close.assert_called_once()
         assert store._pool is None
 
@@ -404,7 +396,7 @@ class TestPGVectorStoreUnit:
     async def test_close_pool_when_none(self, store):
         """Test closing when pool is None."""
         store._pool = None
-        
+
         # Should not raise
         await store.close()
 
@@ -412,7 +404,7 @@ class TestPGVectorStoreUnit:
 class TestPGVectorStoreIntegration:
     """
     Integration tests requiring a real PostgreSQL connection.
-    
+
     These tests are skipped by default. Run with:
         POSTGRES_PASSWORD=omega_dev_password pytest tests/test_pgvector_store.py -v -m integration
     """
@@ -421,10 +413,12 @@ class TestPGVectorStoreIntegration:
     async def live_store(self):
         """Create a real PGVectorStore connected to the test database."""
         import os
+
         if not os.environ.get("POSTGRES_PASSWORD"):
             pytest.skip("POSTGRES_PASSWORD not set")
-        
+
         from memos_mcp.database.pgvector_store import PGVectorStore
+
         store = PGVectorStore(schema="memos", embedding_dimension=1024)
         await store._get_pool()
         yield store
@@ -435,11 +429,11 @@ class TestPGVectorStoreIntegration:
     async def test_full_lifecycle(self, live_store):
         """Test complete memory lifecycle: store, search, retrieve, delete."""
         store = live_store
-        
+
         # Store
         content = f"Integration test memory {datetime.now().isoformat()}"
         embedding = store.generate_placeholder_embedding(content)
-        
+
         memory_id = await store.store_memory(
             content=content,
             agent_id="integration_test",
@@ -448,12 +442,12 @@ class TestPGVectorStoreIntegration:
             tags=["integration", "test"],
         )
         assert memory_id > 0
-        
+
         # Retrieve
         memory = await store.get_memory(memory_id)
         assert memory is not None
         assert memory["content"] == content
-        
+
         # Search
         query_embedding = store.generate_placeholder_embedding(content)
         results = await store.search_memories(
@@ -461,11 +455,11 @@ class TestPGVectorStoreIntegration:
             top_k=5,
         )
         assert any(r["id"] == memory_id for r in results)
-        
+
         # Delete
         deleted = await store.delete_memory(memory_id, "integration_test_cleanup")
         assert deleted is True
-        
+
         # Verify deletion
         memory = await store.get_memory(memory_id)
         assert memory is None

@@ -15,10 +15,14 @@ class Settings(BaseSettings):
     postgres_user: str = "omega_user"
     postgres_password: Optional[str] = None
     postgres_schema: str = "memos"
-    
+
     # PGVector settings
     embedding_dimension: int = 1024
-    embedding_model: str = "placeholder"  # Use "bge-m3" or "openai" in production
+    embedding_model: str = "bge-m3"  # Default to bge-m3, matching OmegaKG
+
+    # Ollama settings
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_request_timeout: int = 60
 
     neo4j_uri: str = "bolt://localhost:7687"
     neo4j_user: str = "neo4j"

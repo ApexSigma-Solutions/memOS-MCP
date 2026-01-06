@@ -17,20 +17,16 @@ from memos_mcp.logic import MemosLogic
 
 # Import Tools (The Mirmir Bridge)
 # Import Tools
-from memos_mcp.tools.intelligence import consult_mirmir
-from memos_mcp.tools.context import (
-    retrieve_context, 
-    get_concepts, 
-    get_constraints
-)
+from memos_mcp.tools.intelligence import consult_mirmir, verify_implementation
+from memos_mcp.tools.context import retrieve_context, get_concepts, get_constraints
 from memos_mcp.tools.memory import (
-    scratch_write, 
-    scratch_read, 
+    scratch_write,
+    scratch_read,
     scratch_clear,
     set_working_memory,
     get_working_memory,
     mark_significant,
-    promote_memory
+    promote_memory,
 )
 
 # Configure Logging
@@ -73,7 +69,9 @@ async def lifespan(server: FastMCP) -> AsyncIterator[None]:
 
 
 # Initialize FastMCP
-mcp_server = FastMCP("memOS", lifespan=lifespan, dependencies=["neo4j", "pydantic", "redis"])
+mcp_server = FastMCP(
+    "memOS", lifespan=lifespan, dependencies=["neo4j", "pydantic", "redis"]
+)
 
 # Export app for uvicorn compatibility
 # Export app for uvicorn compatibility
@@ -81,6 +79,7 @@ app = mcp_server
 
 # --- CORS Middleware ---
 from fastapi.middleware.cors import CORSMiddleware
+
 try:
     # Attempt to add middleware (FastMCP should expose Starlette/FastAPI interface)
     mcp_server.add_middleware(
@@ -91,12 +90,15 @@ try:
         allow_headers=["*"],
     )
 except AttributeError:
-    logger.warning("Could not add CORS middleware to FastMCP instance - check FastMCP version")
+    logger.warning(
+        "Could not add CORS middleware to FastMCP instance - check FastMCP version"
+    )
 
 # --- REGISTER TOOLS ---
 
 # 1. Intelligence Layer (The Brain)
 mcp_server.add_tool(consult_mirmir)
+mcp_server.add_tool(verify_implementation)
 
 # 2. Context Retrieval (Queries)
 mcp_server.add_tool(retrieve_context)
@@ -127,7 +129,32 @@ def get_system_status() -> str:
 
 if __name__ == "__main__":
     import sys
-    
+    import subprocess
+    from pathlib import Path
+
+    # Run Documentation Enforcement (The Immune System)
+    try:
+        # Locate script relative to this file
+        current_dir = Path(__file__).resolve().parent
+        script_path = (
+            current_dir.parent.parent / "scripts" / "maintenance" / "enforce_docs.py"
+        )
+
+        if script_path.exists():
+            logger.info("🛡️ Running Mimir Documentation Enforcement...")
+            # Use same python executable
+            subprocess.run(
+                [sys.executable, str(script_path)], check=True, capture_output=True
+            )
+            logger.info("✅ Mimir Documentation Verified.")
+        else:
+            logger.warning(f"⚠️ Docs script not found at {script_path}")
+
+    except Exception as e:
+        logger.error(f"⚠️ Documentation enforcement failed (Soft Fail): {e}")
+
+    import sys
+
     # Check for SSE mode flag
     if "--sse" in sys.argv:
         # Start SSE server (HTTP-compatible transport for remote MCP clients)
