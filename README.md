@@ -35,24 +35,84 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for full system model.
 
 ## Quick Start
 
+### Prerequisites
+
+memOS.MCP requires three infrastructure services:
+- **Redis** (port 6379) - Ephemeral working memory
+- **Ollama** (port 11434) - Embeddings with bge-m3 model
+- **PostgreSQL** (port 5800) - Persistent vector storage
+
+### Option 1: Automated Setup (Recommended)
+
 ```powershell
-# Install dependencies
+# Windows: Start all infrastructure services
 cd memos.MCP
-poetry install
+.\start-memos.ps1
 
-# Set environment variables
-# Copy .env.example to .env and configure:
-# - POSTGRES_* (Storage)
-# - NEO4J_* (Graph)
-# - REDIS_* (Working Memory)
-# - INGEST_LLM_URL (Learning)
+# Verify services are healthy
+poetry run python scripts\health_check.py
 
-# Start MCP server
-fastmcp run src/memos_mcp/server.py
+# Initialize database schema
+poetry run python scripts\init_db.py
 
-# Reorganized Scripts (db-ops, maintenance, startup, utils)
-# Example: Initialize database
-poetry run python scripts/db-ops/init-database.py
+# Start memOS.MCP server
+poetry run python -m memos_mcp --sse
+```
+
+### Option 2: Manual Setup
+
+```powershell
+# Start services with Docker Compose
+docker-compose up -d
+
+# Check status
+docker-compose ps
+
+# Initialize database
+poetry run python scripts\init_db.py
+
+# Start server
+poetry run python -m memos_mcp --sse
+```
+
+### Option 3: Development Mode (No Infrastructure)
+
+```powershell
+# Set mock mode (uses in-memory storage)
+$env:MEMOS_MOCK_MODE = "true"
+
+# Start server
+poetry run python -m memos_mcp --sse
+```
+
+For detailed setup instructions, see [INFRASTRUCTURE_SETUP.md](INFRASTRUCTURE_SETUP.md)
+
+### Configuration
+
+Create `.env` file:
+
+```ini
+# Redis (Ephemeral Memory)
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+# Ollama (Embeddings)
+OLLAMA_BASE_URL=http://localhost:11434
+EMBEDDING_MODEL=bge-m3
+EMBEDDING_DIMENSION=1024
+
+# PostgreSQL (Persistent Storage)
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5800
+POSTGRES_DB=omega_kg_stable
+POSTGRES_USER=omega_user
+POSTGRES_PASSWORD=your_secure_password
+POSTGRES_SCHEMA=memos
+
+# Server
+FASTMCP_SERVER_PORT=8768
+FASTMCP_SERVER_HOST=0.0.0.0
+FASTMCP_SERVER_TRANSPORT=sse
 ```
 
 ## Tools

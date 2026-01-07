@@ -131,6 +131,8 @@ if __name__ == "__main__":
     import sys
     import subprocess
     from pathlib import Path
+    import uvicorn
+    from fastapi import FastAPI
 
     # Run Documentation Enforcement (The Immune System)
     try:
@@ -153,12 +155,39 @@ if __name__ == "__main__":
     except Exception as e:
         logger.error(f"⚠️ Documentation enforcement failed (Soft Fail): {e}")
 
-    import sys
-
     # Check for SSE mode flag
     if "--sse" in sys.argv:
-        # Start SSE server (HTTP-compatible transport for remote MCP clients)
-        mcp_server.run(transport="sse", host="0.0.0.0", port=8768)
+        logger.info("Starting in SSE mode with Health Check...")
+
+        # 1. Get the Starlette app from FastMCP
+        request_app = mcp_server.sse_app()
+
+        # 2. Create a wrapper FastAPI app
+        wrapper_app = FastAPI()
+
+        # 3. Add CORS Middleware (Required for Dashboard)
+        from fastapi.middleware.cors import CORSMiddleware
+
+        wrapper_app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],  # Allow all origins for dev environment
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+
+        # 4. Add Health Check (Required for Dashboard)
+        @wrapper_app.get("/health")
+        async def health_check():
+            return {"status": "healthy", "service": "memOS.MCP"}
+
+        # 5. Mount the SSE app
+        # We mount at root so /sse and /messages work as expected
+        wrapper_app.mount("/", request_app)
+
+        # 6. Run with Uvicorn
+        uvicorn.run(wrapper_app, host="0.0.0.0", port=8768)
+
     else:
         # Start stdio server (default for Claude Desktop and local MCP clients)
         mcp_server.run()
