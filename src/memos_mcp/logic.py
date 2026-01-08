@@ -70,19 +70,35 @@ class MemosLogic:
             logger.error(f"Search error: {e}")
             return f"Search failed: {e}"
 
-    async def store(self, content: str, tags: Optional[List[str]] = None) -> str:
+    async def store(
+        self,
+        content: str,
+        tags: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """
         Store a memory with embedding.
 
         Args:
             content: The memory content to store
             tags: Optional list of tags
+            metadata: Optional full metadata dictionary. If provided, tags are merged into it.
 
         Returns:
             String representation of the result
         """
         try:
-            result = await store_memory("default", content, {"tags": tags or []})
+            # Prepare metadata
+            final_metadata = metadata or {}
+            if tags:
+                # Merge tags into metadata, potentially appending if 'tags' key exists
+                existing_tags = final_metadata.get("tags", [])
+                if isinstance(existing_tags, list):
+                    final_metadata["tags"] = list(set(existing_tags + tags))
+                else:
+                    final_metadata["tags"] = tags
+
+            result = await store_memory("default", content, final_metadata)
             if result.get("status") == "success":
                 return f"Memory stored successfully (ID: {result.get('memory_id')})"
             return f"Store failed: {result.get('message')}"

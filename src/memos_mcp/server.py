@@ -5,7 +5,9 @@ Integrates local tools and the Omega Intelligence Layer.
 
 import logging
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from typing import AsyncIterator, Dict, Any, List, Optional
+from enum import Enum
+from pydantic import BaseModel, Field
 
 from fastmcp import FastMCP
 
@@ -38,6 +40,21 @@ logger = logging.getLogger("memos_mcp")
 
 # Global Logic Instance
 logic_instance: MemosLogic = None
+
+
+class MemoryTier(str, Enum):
+    WORKING = "working"
+    EPISODIC = "episodic"
+    SEMANTIC = "semantic"
+    PROCEDURAL = "procedural"
+
+
+class MemoryStorageRequest(BaseModel):
+    content: str
+    memory_tier: MemoryTier
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    embedding: Optional[List[float]] = None
+    relationships: Optional[List[Dict[str, Any]]] = None
 
 
 @asynccontextmanager
@@ -163,7 +180,22 @@ if __name__ == "__main__":
         request_app = mcp_server.sse_app()
 
         # 2. Create a wrapper FastAPI app
-        wrapper_app = FastAPI()
+        @asynccontextmanager
+        async def wrapper_lifespan(app: FastAPI):
+            global logic_instance
+            logger.info("🚀 Initializing Logic Layer via Wrapper Lifespan...")
+            settings = Settings()
+            try:
+                logic_instance = MemosLogic(settings)
+                await logic_instance.initialize()
+                logger.info("✅ memOS Logic Layer Initialized.")
+                yield
+            finally:
+                logger.info("🛑 Shutting down Logic Layer...")
+                if logic_instance:
+                    await logic_instance.shutdown()
+
+        wrapper_app = FastAPI(lifespan=wrapper_lifespan)
 
         # 3. Add CORS Middleware (Required for Dashboard)
         from fastapi.middleware.cors import CORSMiddleware
@@ -180,6 +212,47 @@ if __name__ == "__main__":
         @wrapper_app.get("/health")
         async def health_check():
             return {"status": "healthy", "service": "memOS.MCP"}
+
+        # 6. Add Memory Storage Endpoint (Bridge for InGest-LLM)
+        # Defined BEFORE mounting request_app to avoid shadowing by root mount
+        @wrapper_app.post("/memory/{tier}/store")
+        async def store_memory_endpoint(tier: str, request: MemoryStorageRequest):
+            """
+            Handle memory storage requests from InGest-LLM.
+            """
+            global logic_instance
+            if not logic_instance:
+                return {"status": "error", "message": "Logic layer not initialized"}
+
+            logger.info(
+                f"📥 Received storage request for tier {tier}: {request.memory_tier}"
+            )
+
+            # Map numeric tiers if necessary (InGest-LLM might send "3" in URL)
+            # Logic currently supports generic storage via pgvector.
+            # Ideally we route to Neo4j for tier 3, but pgvector is the fallback.
+
+            try:
+                # Use logic_instance to store
+                # We pass the full metadata from the request
+                result = await logic_instance.store(
+                    content=request.content, metadata=request.metadata
+                )
+
+                # Parse the result string (logic.store returns string)
+                # logic.store returns: "Memory stored successfully (ID: ...)" or "Store failed: ..."
+                if result.startswith("Memory stored successfully"):
+                    import re
+
+                    match = re.search(r"ID: ([a-f0-9\-]+)", result)
+                    mem_id = match.group(1) if match else "unknown"
+                    return {"status": "success", "memory_id": mem_id, "tier": tier}
+                else:
+                    return {"status": "error", "message": result}
+
+            except Exception as e:
+                logger.error(f"Storage endpoint error: {e}")
+                return {"status": "error", "message": str(e)}
 
         # 5. Mount the SSE app
         # We mount at root so /sse and /messages work as expected
