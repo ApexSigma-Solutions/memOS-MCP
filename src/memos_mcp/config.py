@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     neo4j_user: str = "neo4j"
     neo4j_password: Optional[str] = None
 
-    fastmcp_server_port: int = 8080
+    fastmcp_server_port: int = 8768
     fastmcp_server_host: str = "0.0.0.0"
     fastmcp_server_log_level: str = "INFO"
     fastmcp_server_transport: str = "sse"

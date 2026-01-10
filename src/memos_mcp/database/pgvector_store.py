@@ -38,8 +38,8 @@ class PGVectorStore:
     def __init__(
         self,
         pool: Optional[Pool] = None,
-        schema: str = "memos",
-        embedding_dimension: int = 1024,
+        schema: Optional[str] = None,
+        embedding_dimension: Optional[int] = None,
     ):
         """
         Initialize PGVectorStore.
@@ -47,12 +47,12 @@ class PGVectorStore:
         Args:
             pool: Optional asyncpg connection pool. If not provided, one will
                   be created on first use.
-            schema: Database schema name (default: "memos")
-            embedding_dimension: Vector dimension (default: 1024)
+            schema: Database schema name (default: from settings)
+            embedding_dimension: Vector dimension (default: from settings)
         """
         self._pool = pool
-        self._schema = schema
-        self._embedding_dimension = embedding_dimension
+        self._schema = schema or settings.postgres_schema
+        self._embedding_dimension = embedding_dimension or settings.embedding_dimension
         self._initialized = False
 
     async def _get_pool(self) -> Pool:

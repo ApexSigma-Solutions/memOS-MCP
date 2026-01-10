@@ -87,7 +87,7 @@ async def lifespan(server: FastMCP) -> AsyncIterator[None]:
 
 # Initialize FastMCP
 mcp_server = FastMCP(
-    "memOS", lifespan=lifespan, dependencies=["neo4j", "pydantic", "redis"]
+    "memOS", lifespan=lifespan
 )
 
 # Export app for uvicorn compatibility
@@ -95,21 +95,8 @@ mcp_server = FastMCP(
 app = mcp_server
 
 # --- CORS Middleware ---
-from fastapi.middleware.cors import CORSMiddleware
-
-try:
-    # Attempt to add middleware (FastMCP should expose Starlette/FastAPI interface)
-    mcp_server.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-except AttributeError:
-    logger.warning(
-        "Could not add CORS middleware to FastMCP instance - check FastMCP version"
-    )
+# Note: FastMCP doesn't support add_middleware directly.
+# CORS is handled in the SSE wrapper app instead.
 
 # --- REGISTER TOOLS ---
 
