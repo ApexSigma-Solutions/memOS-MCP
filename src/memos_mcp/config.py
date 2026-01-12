@@ -4,13 +4,18 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=".env", 
+        env_file_encoding="utf-8",
+        extra="ignore"  # Ignore extra fields from .env for compatibility
+    )
 
     memos_db_type: str = "sqlite"
     memos_db_path: str = "/data/sqlite/memory.db"
 
+    # PostgreSQL settings - aligned with shared OmegaKG infrastructure
     postgres_host: str = "localhost"
-    postgres_port: int = 5800
+    postgres_port: int = 6000  # Shared apexsigma.postgres.stable container
     postgres_db: str = "omega_kg_stable"
     postgres_user: str = "omega_user"
     postgres_password: Optional[str] = None
@@ -37,14 +42,14 @@ class Settings(BaseSettings):
     memos_enable_graph_memory: bool = False
     memos_max_memory_size: int = 1000
 
-    # Redis settings (ephemeral memory)
+    # Redis settings (ephemeral memory) - aligned with memos-redis-mcp container
     redis_host: str = "localhost"
-    redis_port: int = 6379
+    redis_port: int = 6380  # memos-redis-mcp maps to 6380 to avoid conflicts
     redis_password: Optional[str] = None
     redis_db: int = 0
 
-    # InGest-LLM settings (memory promotion)
-    ingest_llm_url: str = "http://localhost:8000"
+    # InGest-LLM settings (memory promotion) - aligned with running service
+    ingest_llm_url: str = "http://localhost:8766"  # Actual InGest-LLM port
     ingest_llm_timeout: int = 30
     memory_promotion_threshold: float = 0.7  # Auto-promote if significance >= threshold
 
