@@ -5,9 +5,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env", 
+        env_file=".env",
         env_file_encoding="utf-8",
-        extra="ignore"  # Ignore extra fields from .env for compatibility
+        extra="ignore",  # Ignore extra fields from .env for compatibility
     )
 
     memos_db_type: str = "sqlite"
@@ -47,6 +47,14 @@ class Settings(BaseSettings):
     redis_port: int = 6380  # memos-redis-mcp maps to 6380 to avoid conflicts
     redis_password: Optional[str] = None
     redis_db: int = 0
+
+    # Janitor Worker settings (Pulse system)
+    janitor_enabled: bool = True
+    janitor_buffer_size: int = 10  # Events before consolidation
+    janitor_timeout_seconds: int = 300  # 5 minutes
+    janitor_stream_key: str = "pulse:stream"
+    janitor_max_stream_len: int = 1000
+    omegakg_validate_url: str = "http://localhost:8765/api/validate"
 
     # InGest-LLM settings (memory promotion) - aligned with running service
     ingest_llm_url: str = "http://localhost:8766"  # Actual InGest-LLM port

@@ -31,6 +31,10 @@ from memos_mcp.tools.memory import (
     promote_memory,
 )
 
+# Import Pulse Worker
+from memos_mcp.workers import JanitorWorker, ConsolidationThresholds
+from memos_mcp.memory import get_redis_client
+
 # Configure Logging
 logging.basicConfig(
     level=logging.INFO,
@@ -40,6 +44,8 @@ logger = logging.getLogger("memos_mcp")
 
 # Global Logic Instance
 logic_instance: MemosLogic = None
+# Global Janitor Worker
+janitor_worker: Optional[JanitorWorker] = None
 
 
 class MemoryTier(str, Enum):
@@ -86,9 +92,7 @@ async def lifespan(server: FastMCP) -> AsyncIterator[None]:
 
 
 # Initialize FastMCP
-mcp_server = FastMCP(
-    "memOS", lifespan=lifespan
-)
+mcp_server = FastMCP("memOS", lifespan=lifespan)
 
 # Export app for uvicorn compatibility
 # Export app for uvicorn compatibility
@@ -169,16 +173,35 @@ if __name__ == "__main__":
         # 2. Create a wrapper FastAPI app
         @asynccontextmanager
         async def wrapper_lifespan(app: FastAPI):
-            global logic_instance
+            global logic_instance, janitor_worker
             logger.info("🚀 Initializing Logic Layer via Wrapper Lifespan...")
             settings = Settings()
             try:
                 logic_instance = MemosLogic(settings)
                 await logic_instance.initialize()
                 logger.info("✅ memOS Logic Layer Initialized.")
+
+                # Start Janitor worker if enabled
+                if settings.janitor_enabled:
+                    janitor_worker = JanitorWorker(
+                        stream_key=settings.janitor_stream_key,
+                        thresholds=ConsolidationThresholds(
+                            buffer_size=settings.janitor_buffer_size,
+                            timeout_seconds=settings.janitor_timeout_seconds,
+                        ),
+                        omegakg_url=settings.omegakg_validate_url,
+                    )
+                    await janitor_worker.start()
+                    logger.info("✅ Janitor worker started")
+
                 yield
             finally:
                 logger.info("🛑 Shutting down Logic Layer...")
+
+                # Stop Janitor worker
+                if janitor_worker:
+                    await janitor_worker.stop()
+
                 if logic_instance:
                     await logic_instance.shutdown()
 
@@ -240,6 +263,72 @@ if __name__ == "__main__":
             except Exception as e:
                 logger.error(f"Storage endpoint error: {e}")
                 return {"status": "error", "message": str(e)}
+
+        # 7. Add Pulse Event Emission Endpoint
+        class PulseEmitRequest(BaseModel):
+            event_type: str
+            payload: Dict[str, Any]
+            session_id: Optional[str] = None
+
+        @wrapper_app.post("/pulse/emit")
+        async def emit_pulse_event(request: PulseEmitRequest):
+            """
+            Emit a pulse event to the stream.
+
+            Events are captured for real-time monitoring and automatic consolidation.
+            """
+            try:
+                redis_client = get_redis_client()
+                stream_id = await redis_client.emit_pulse_event(
+                    event_type=request.event_type,
+                    payload=request.payload,
+                    session_id=request.session_id,
+                )
+                return {"status": "ok", "stream_id": stream_id}
+            except Exception as e:
+                logger.error(f"Failed to emit pulse event: {e}")
+                return {"status": "error", "message": str(e)}
+
+        # 8. Add Pulse Stream SSE Endpoint (for Dashboard)
+        from sse_starlette.sse import EventSourceResponse
+
+        @wrapper_app.get("/pulse/stream")
+        async def pulse_stream_sse():
+            """
+            Stream pulse events to dashboard via Server-Sent Events.
+            """
+
+            async def event_generator():
+                redis_client = get_redis_client()
+                await redis_client.connect()
+                last_id = "$"  # Start from new events only
+
+                try:
+                    while True:
+                        # Read from stream with 5 second timeout
+                        events = await redis_client.read_pulse_stream(
+                            last_id=last_id,
+                            count=10,
+                            block_ms=5000,
+                        )
+
+                        if events:
+                            for event in events:
+                                # Format as SSE
+                                yield {
+                                    "event": "pulse",
+                                    "data": event.model_dump_json(),
+                                }
+                                last_id = event.event_id
+                        else:
+                            # Send keepalive
+                            yield {"event": "ping", "data": ""}
+
+                except Exception as e:
+                    logger.error(f"SSE stream error: {e}")
+                    yield {"event": "error", "data": str(e)}
+
+            return EventSourceResponse(event_generator())
 
         # 5. Mount the SSE app
         # We mount at root so /sse and /messages work as expected
