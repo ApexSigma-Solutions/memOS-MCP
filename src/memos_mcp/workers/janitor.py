@@ -166,7 +166,7 @@ class JanitorWorker:
 
         # Check significance-based threshold (error events)
         elif self.thresholds.error_immediate and event.event_type == "error":
-            logger.warning(f"Error event detected, consolidating immediately")
+            logger.warning("Error event detected, consolidating immediately")
             await self._consolidate_events()
 
     async def _check_timeout(self) -> None:
