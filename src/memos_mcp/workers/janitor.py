@@ -7,6 +7,7 @@ event clusters into knowledge digests for OmegaKG.
 
 import asyncio
 import logging
+import sys
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 from uuid import uuid4
@@ -85,17 +86,22 @@ class JanitorWorker:
 
         # Register signal handlers for graceful shutdown (Unix only)
         # Windows doesn't support asyncio signal handlers
-        try:
-            import signal
+        if sys.platform != "win32":
+            try:
+                import signal
 
-            loop = asyncio.get_event_loop()
-            for sig in (signal.SIGTERM, signal.SIGINT):
-                loop.add_signal_handler(sig, lambda: asyncio.create_task(self.stop()))
-            logger.debug("Signal handlers registered (Unix platform)")
-        except (NotImplementedError, AttributeError):
-            # Windows or other platforms that don't support signal handlers
-            # Graceful shutdown will still work via lifespan context manager
-            logger.debug("Signal handlers not available on this platform (Windows)")
+                loop = asyncio.get_event_loop()
+                for sig in (signal.SIGTERM, signal.SIGINT):
+                    loop.add_signal_handler(
+                        sig, lambda: asyncio.create_task(self.stop())
+                    )
+                logger.debug("Signal handlers registered (Unix platform)")
+            except (NotImplementedError, AttributeError):
+                # Windows or other platforms that don't support signal handlers
+                # Graceful shutdown will still work via lifespan context manager
+                logger.debug("Signal handlers not available on this platform")
+        else:
+            logger.debug("Signal handlers skipped on Windows")
 
     async def stop(self) -> None:
         """Stop the Janitor worker gracefully."""
