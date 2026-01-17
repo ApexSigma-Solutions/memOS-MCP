@@ -44,11 +44,13 @@ class Settings(BaseSettings):
 
     # Redis settings (ephemeral memory) - aligned with memos-redis-mcp container
     redis_host: str = "localhost"
-    redis_port: int = 6380  # memos-redis-mcp maps to 6380 to avoid conflicts
+    redis_port: int = 6380  # Using 6380 to avoid Windows Docker port conflicts
     redis_password: Optional[str] = None
     redis_db: int = 0
 
     # Janitor Worker settings (Pulse system)
+    # Janitor can run on Windows with non-blocking reads (block_ms=None).
+    # Override via JANITOR_ENABLED env var if needed.
     janitor_enabled: bool = True
     janitor_buffer_size: int = 10  # Events before consolidation
     janitor_timeout_seconds: int = 300  # 5 minutes

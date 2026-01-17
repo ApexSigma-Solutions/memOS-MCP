@@ -126,22 +126,29 @@ class JanitorWorker:
 
     async def _process_stream(self) -> None:
         """Main event processing loop."""
+        logger.info("[Janitor] Connecting to Redis...")
         await self.redis_client.connect()
+        logger.info("[Janitor] Connected to Redis. Starting loop.")
 
         while self._running:
             try:
-                # Read from stream with 5 second timeout
+                # logger.info(f"[Janitor] Reading stream {self.stream_key} (last_id={self.last_stream_id})")
+                # Read from stream (Non-blocking to avoid Windows Proactor crash)
                 events = await self.redis_client.read_pulse_stream(
                     stream_key=self.stream_key,
                     last_id=self.last_stream_id,
                     count=10,
-                    block_ms=5000,
+                    block_ms=None,
                 )
 
                 if events:
+                    logger.info(f"[Janitor] Received {len(events)} events")
                     for event in events:
                         await self._handle_event(event)
                         self.last_stream_id = event.event_id
+                else:
+                    # No events, sleep 1s to prevent CPU spin
+                    await asyncio.sleep(1)
 
                 # Check timeout-based consolidation
                 await self._check_timeout()

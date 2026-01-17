@@ -9,6 +9,7 @@ from typing import AsyncIterator, Dict, Any, List, Optional
 from enum import Enum
 from pydantic import BaseModel, Field
 
+
 from fastmcp import FastMCP
 
 # Import Configuration
@@ -36,9 +37,19 @@ from memos_mcp.workers import JanitorWorker, ConsolidationThresholds
 from memos_mcp.memory import get_redis_client
 
 # Configure Logging
+import os
+
+log_dir = "d:/projects/OmegaKG/logs"
+if not os.path.exists(log_dir):
+    os.makedirs(log_dir, exist_ok=True)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler(f"{log_dir}/memos_debug.log", encoding="utf-8"),
+    ],
 )
 logger = logging.getLogger("memos_mcp")
 
@@ -329,6 +340,37 @@ if __name__ == "__main__":
                     yield {"event": "error", "data": str(e)}
 
             return EventSourceResponse(event_generator())
+
+        # 9. Add Stats Endpoint (for Dashboard memOS metrics)
+        @wrapper_app.get("/stats")
+        async def get_memory_stats():
+            """
+            Return memory statistics for dashboard.
+            Exposes PGVectorStore.get_stats() via HTTP.
+            """
+            from memos_mcp.database import get_pgvector_store
+
+            store = get_pgvector_store()
+            try:
+                stats = await store.get_stats()
+                return {
+                    "total_memories": stats.get("total_memories", 0),
+                    "by_agent": stats.get("memories_by_agent", {}),
+                    "by_tier": {
+                        "semantic": stats.get("total_memories", 0),
+                        "procedural": 0,  # Not tracked separately yet
+                    },
+                    "vector_dimension": 1024,
+                }
+            except Exception as e:
+                logger.error(f"Failed to get stats: {e}")
+                return {
+                    "total_memories": 0,
+                    "by_agent": {},
+                    "by_tier": {"semantic": 0, "procedural": 0},
+                    "vector_dimension": 1024,
+                    "error": str(e),
+                }
 
         # 5. Mount the SSE app
         # We mount at root so /sse and /messages work as expected
