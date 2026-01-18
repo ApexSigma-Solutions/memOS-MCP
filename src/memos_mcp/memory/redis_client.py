@@ -411,8 +411,8 @@ def get_redis_client() -> RedisMemoryClient:
     global _redis_client
     if _redis_client is None:
         _redis_client = RedisMemoryClient(
-            host=getattr(settings, "redis_host", "localhost"),
-            port=getattr(settings, "redis_port", 6379),
-            password=getattr(settings, "redis_password", None),
+            host=getattr(settings, "memos_redis_host", "localhost"),
+            port=getattr(settings, "memos_redis_port", 6380),
+            password=getattr(settings, "memos_redis_password", None),
         )
     return _redis_client

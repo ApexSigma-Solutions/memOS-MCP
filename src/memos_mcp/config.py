@@ -43,10 +43,10 @@ class Settings(BaseSettings):
     memos_max_memory_size: int = 1000
 
     # Redis settings (ephemeral memory) - aligned with memos-redis-mcp container
-    redis_host: str = "localhost"
-    redis_port: int = 6380  # Using 6380 to avoid Windows Docker port conflicts
-    redis_password: Optional[str] = None
-    redis_db: int = 0
+    memos_redis_host: str = "localhost"
+    memos_redis_port: int = 6380  # Using 6380 to avoid Windows Docker port conflicts
+    memos_redis_password: Optional[str] = None
+    memos_redis_db: int = 0
 
     # Janitor Worker settings (Pulse system)
     # Janitor can run on Windows with non-blocking reads (block_ms=None).
