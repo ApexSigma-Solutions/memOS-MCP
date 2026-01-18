@@ -39,18 +39,14 @@ from memos_mcp.memory import get_redis_client
 # Configure Logging
 import os
 
+from memos_mcp.observability import configure_logging
+
+# Configure Logging
 log_dir = "d:/projects/OmegaKG/logs"
 if not os.path.exists(log_dir):
     os.makedirs(log_dir, exist_ok=True)
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler(f"{log_dir}/memos_debug.log", encoding="utf-8"),
-    ],
-)
+configure_logging("memos_mcp", log_dir)
 logger = logging.getLogger("memos_mcp")
 
 # Global Logic Instance
